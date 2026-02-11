@@ -50,7 +50,7 @@ export function IssuesProvider({ children }) {
   }
 
   return (
-    <IssuesContext.Provider value={{ issues, addIssue, clearIssues }}>
+    <IssuesContext.Provider value={{ issues, setIssues, addIssue, addIssue, clearIssues }}>
       {children}
     </IssuesContext.Provider>
   );
