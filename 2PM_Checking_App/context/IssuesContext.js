@@ -34,12 +34,14 @@ export function IssuesProvider({ children }) {
     })();
   }, [issues, loaded]);
 
-  function addIssue({ title, priority }) {
+  function addIssue({ title, priority, description, image }) {
     const newIssue = {
       id: Date.now().toString(),
       title,
+      description: description || "",
+      image: image || null,
       status: "Open",
-      priority: priority || "Medium",
+      priority: (priority || "Medium").trim(),
       createdAt: new Date().toLocaleString(),
     };
     setIssues((prev) => [newIssue, ...prev]);
@@ -50,7 +52,7 @@ export function IssuesProvider({ children }) {
   }
 
   return (
-    <IssuesContext.Provider value={{ issues, setIssues, addIssue, addIssue, clearIssues }}>
+    <IssuesContext.Provider value={{ issues, setIssues, addIssue, clearIssues }}>
       {children}
     </IssuesContext.Provider>
   );

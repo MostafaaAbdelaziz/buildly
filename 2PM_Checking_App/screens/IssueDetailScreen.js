@@ -1,37 +1,36 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from "react-native";
 import { useIssues } from "../context/IssuesContext";
 
 const STATUSES = ["Open", "In Progress", "Resolved"];
 
 export default function IssueDetailScreen({ route, navigation }) {
-  const { issue } = route.params; 
+  const { issue } = route.params;
   const { issues, setIssues } = useIssues();
 
-  // Always show the latest version of the issue from context
   const currentIssue = useMemo(() => {
     return issues.find((i) => i.id === issue.id) || issue;
   }, [issues, issue]);
 
   function updateStatus(newStatus) {
     if (!setIssues) {
-      Alert.alert("Error", "setIssues is not available in IssuesContext. Add it to Provider value.");
+      Alert.alert("Error", "setIssues is not available in IssuesContext.");
       return;
     }
 
+    // OPTION B: resolved deletes the issue
     if (newStatus === "Resolved") {
       setIssues((prev) => prev.filter((i) => i.id !== currentIssue.id));
       navigation.goBack();
       return;
     }
-    
+
     setIssues((prev) =>
       prev.map((i) =>
         i.id === currentIssue.id ? { ...i, status: newStatus } : i
       )
     );
 
-    
     navigation.setOptions({ title: newStatus });
   }
 
@@ -43,6 +42,17 @@ export default function IssueDetailScreen({ route, navigation }) {
         <Text style={styles.line}>Priority: {currentIssue.priority}</Text>
         <Text style={styles.line}>Status: {currentIssue.status}</Text>
         <Text style={styles.line}>Created: {currentIssue.createdAt}</Text>
+
+        <Text style={[styles.line, { marginTop: 10, fontWeight: "800" }]}>
+          Description
+        </Text>
+        <Text style={{ marginBottom: 8 }}>
+          {currentIssue.description || "No description provided."}
+        </Text>
+
+        {currentIssue.image && (
+          <Image source={{ uri: currentIssue.image }} style={styles.photo} />
+        )}
       </View>
 
       <Text style={styles.sectionTitle}>Update status</Text>
@@ -83,6 +93,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   line: { marginBottom: 6 },
+
+  photo: { width: "100%", height: 220, borderRadius: 12, marginTop: 10 },
 
   sectionTitle: { marginTop: 18, fontWeight: "800" },
 

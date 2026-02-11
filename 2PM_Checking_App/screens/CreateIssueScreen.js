@@ -1,11 +1,26 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native";
 import { useIssues } from "../context/IssuesContext";
+import * as ImagePicker from "expo-image-picker";
 
 export default function CreateIssueScreen({ navigation }) {
   const { addIssue } = useIssues();
+
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("Medium");
+  const [description, setDescription] = useState("");
+  const [image, setImage] = useState(null);
+
+  async function pickImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.6,
+    });
+    
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  }
 
   function handleSave() {
     if (!title.trim()) return;
@@ -20,8 +35,10 @@ export default function CreateIssueScreen({ navigation }) {
       <Text style={styles.label}>Title</Text>
       <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Enter issue title" />
 
+      <Text style={styles.label}>Description</Text>
+      <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Describe the issue..." multiline />
+      
       <Text style={styles.label}>Priority</Text>
-
         <View style={styles.priorityRow}>
             {["Low", "Medium", "High"].map((p) => (
                 <TouchableOpacity
@@ -36,6 +53,16 @@ export default function CreateIssueScreen({ navigation }) {
             ))}
         </View>
 
+      <TouchableOpacity style={[styles.btn, {marginTop: 16}]} onPress={pickImage}>
+        <Text style={styles.btnText}>{image ? "Change Photo" : "Attach Photo"}</Text>
+      </TouchableOpacity>
+      {image && (
+        <Image 
+          source={{ uri: image }} 
+          style={StyleSheet.preview}
+        />
+      )}
+
       <TouchableOpacity style={styles.btn} onPress={handleSave}>
         <Text style={styles.btnText}>Save Issue</Text>
       </TouchableOpacity>
@@ -47,12 +74,33 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 16 },
   label: { fontWeight: "700", marginBottom: 6, marginTop: 10 },
-  input: { borderWidth: 1, borderColor: "#ddd", borderRadius: 12, padding: 12 },
-  btn: { marginTop: 18, backgroundColor: "black", padding: 14, borderRadius: 12 },
-  btnText: { color: "white", fontWeight: "800", textAlign: "center" },
+
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 12,
+    padding: 12,
+  },
+  textArea: {
+    height: 110,
+    textAlignVertical: "top",
+  },
+
   priorityRow: { flexDirection: "row", gap: 10, marginTop: 6 },
-  priorityBtn: {flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: "#ddd", alignItems: "center",},
+  priorityBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+  },
   priorityBtnActive: { backgroundColor: "black", borderColor: "black" },
   priorityText: { fontWeight: "700" },
   priorityTextActive: { color: "white" },
+
+  btn: { marginTop: 18, backgroundColor: "black", padding: 14, borderRadius: 12 },
+  btnText: { color: "white", fontWeight: "800", textAlign: "center" },
+
+  preview: { width: "100%", height: 220, marginTop: 10, borderRadius: 12 },
 });
