@@ -39,7 +39,7 @@ export function IssuesProvider({ children }) {
       id: Date.now().toString(),
       title,
       description: description || "",
-      image: image || null,
+      image: image || imageUri || null,
       status: "Open",
       priority: (priority || "Medium").trim(),
       createdAt: new Date().toLocaleString(),
