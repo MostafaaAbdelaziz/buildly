@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ScheduleContext = createContext(null);
@@ -10,29 +10,21 @@ export function ScheduleProvider({ children }) {
 
   // Load once
   useEffect(() => {
-    let isMounted = true;
-
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!isMounted) return;
         if (raw) setItems(JSON.parse(raw));
       } catch (e) {
         console.log("Failed to load schedule", e);
       } finally {
-        if (isMounted) setLoaded(true);
+        setLoaded(true);
       }
     })();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  // Save whenever items changes (after initial load)
+  // Save when items changes
   useEffect(() => {
     if (!loaded) return;
-
     (async () => {
       try {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
@@ -42,14 +34,24 @@ export function ScheduleProvider({ children }) {
     })();
   }, [items, loaded]);
 
-  function addItem({ title, date, time, location, notes }) {
+  function addItem({
+    title,
+    date,       // "YYYY-MM-DD"
+    startTime,  // "HH:MM"
+    endTime,    // "HH:MM"
+    location,
+    notes,
+    crew,
+  }) {
     const newItem = {
       id: Date.now().toString(),
       title,
-      date: date || "",
-      time: time || "",
-      location: location || "",
-      notes: notes || "",
+      date: (date || "").trim(),
+      startTime: (startTime || "").trim(),
+      endTime: (endTime || "").trim(),
+      location: (location || "").trim(),
+      notes: (notes || "").trim(),
+      crew: (crew || "").trim() || "BL",
       status: "Planned",
       createdAt: new Date().toLocaleString(),
     };
@@ -75,12 +77,13 @@ export function ScheduleProvider({ children }) {
     setItems([]);
   }
 
-  const value = useMemo(
-    () => ({ items, setItems, addItem, toggleDone, deleteItem, clearSchedule }),
-    [items]
+  return (
+    <ScheduleContext.Provider
+      value={{ items, setItems, addItem, toggleDone, deleteItem, clearSchedule }}
+    >
+      {children}
+    </ScheduleContext.Provider>
   );
-
-  return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }
 
 export function useSchedule() {
