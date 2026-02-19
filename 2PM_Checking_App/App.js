@@ -9,6 +9,9 @@ import TabsNavigator from "./navigation/TabNavigator";
 import CreateIssueScreen from "./screens/CreateIssueScreen";
 import IssueDetailScreen from "./screens/IssueDetailScreen";
 
+//Login Screen
+import LoginScreen from "./screens/LoginScreen";
+
 // Schedule screens
 import CreateScheduleScreen from "./screens/CreateScheduleScreen";
 import ScheduleDetailScreen from "./screens/ScheduleDetailScreen";
@@ -16,6 +19,7 @@ import ScheduleDetailScreen from "./screens/ScheduleDetailScreen";
 // Providers
 import { IssuesProvider } from "./context/IssuesContext";
 import { ScheduleProvider } from "./context/ScheduleContext";
+import RegisterScreen from "./screens/RegisterScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -24,7 +28,19 @@ export default function App() {
     <IssuesProvider>
       <ScheduleProvider>
         <NavigationContainer>
-          <Stack.Navigator>
+          <Stack.Navigator initialRouteName="Login">
+            {/* Login screen */}
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ headerShown: false }}
+            />
+
+            <Stack.Screen
+              name="Register"
+              component={RegisterScreen}
+              options={{ headerShown: false }}
+            />
             {/* Main tabs */}
             <Stack.Screen
               name="Tabs"
