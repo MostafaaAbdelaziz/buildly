@@ -35,17 +35,18 @@ export function IssuesProvider({ children }) {
   }, [issues, loaded]);
 
   function addIssue({ title, priority, description, image }) {
-    const newIssue = {
-      id: Date.now().toString(),
-      title,
-      description: description || "",
-      image: image || imageUri || null,
-      status: "Open",
-      priority: (priority || "Medium").trim(),
-      createdAt: new Date().toLocaleString(),
-    };
-    setIssues((prev) => [newIssue, ...prev]);
-  }
+  const newIssue = {
+    id: Date.now().toString(),
+    title,
+    description: description || "",
+    image: image || null,
+    status: "Open",
+    priority: (priority || "Medium").trim(),
+    createdAt: new Date().toLocaleString(),
+  };
+
+  setIssues((prev) => [newIssue, ...prev]);
+}
 
   function clearIssues() {
     setIssues([]);
