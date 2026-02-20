@@ -1,33 +1,62 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useSchedule } from "../context/ScheduleContext";
+import { useAuth } from "../context/AuthContext";
 
 export default function CreateScheduleScreen({ navigation }) {
   const { addItem } = useSchedule();
+  const { role } = useAuth();
+  const isManager = role === "manager";
 
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");         // YYYY-MM-DD
+  const [date, setDate] = useState("");           // YYYY-MM-DD
   const [startTime, setStartTime] = useState(""); // HH:MM
   const [endTime, setEndTime] = useState("");     // HH:MM
   const [location, setLocation] = useState("");
   const [crew, setCrew] = useState("BL");
   const [notes, setNotes] = useState("");
 
-  function handleSave() {
-    if (!title.trim()) return;
-    if (!date.trim()) return;
+  async function handleSave() {
+    if (!isManager) {
+      Alert.alert("Access denied", "Only managers can create schedule items.");
+      return;
+    }
 
-    addItem({
-      title: title.trim(),
-      date: date.trim(),
-      startTime: startTime.trim(),
-      endTime: endTime.trim(),
-      location: location.trim(),
-      notes: notes.trim(),
-      crew: crew.trim(),
-    });
+    if (!title.trim()) return Alert.alert("Missing info", "Please enter a title.");
+    if (!date.trim()) return Alert.alert("Missing info", "Please enter a date (YYYY-MM-DD).");
 
-    navigation.goBack();
+    try {
+      await addItem({
+        title: title.trim(),
+        date: date.trim(),
+        startTime: startTime.trim(),
+        endTime: endTime.trim(),
+        location: location.trim(),
+        notes: notes.trim(),
+        crew: crew.trim(),
+      });
+
+      navigation.goBack();
+    } catch (e) {
+      console.log(e?.message);
+      Alert.alert("Error", e?.message || "Failed to save schedule.");
+    }
+  }
+
+  // If foreman gets here (deep link / manual nav), show a locked screen
+  if (!isManager) {
+    return (
+      <View style={[styles.container, { justifyContent: "center" }]}>
+        <Text style={{ fontSize: 22, fontWeight: "900", textAlign: "center" }}>Managers only</Text>
+        <Text style={{ marginTop: 10, fontWeight: "700", opacity: 0.6, textAlign: "center" }}>
+          Foremen can view schedules but can’t create or edit them.
+        </Text>
+
+        <TouchableOpacity style={[styles.btn, { marginTop: 18 }]} onPress={() => navigation.goBack()}>
+          <Text style={styles.btnText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -77,7 +106,7 @@ export default function CreateScheduleScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 28 },
+  container: { flexGrow: 1, padding: 16, paddingBottom: 28, backgroundColor: "#f4f4f6" },
   title: { fontSize: 24, fontWeight: "800", marginBottom: 16 },
   label: { fontWeight: "700", marginBottom: 6, marginTop: 10 },
   row: { flexDirection: "row", alignItems: "center" },

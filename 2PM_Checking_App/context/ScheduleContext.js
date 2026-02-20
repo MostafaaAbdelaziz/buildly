@@ -1,40 +1,48 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { onValue, push, ref, remove, set, update } from "firebase/database";
+import { firebase_auth, firebase_db } from "../firebaseConfig/firebaseConfig";
 
 const ScheduleContext = createContext(null);
-const STORAGE_KEY = "schedule_v1";
 
 export function ScheduleProvider({ children }) {
   const [items, setItems] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Load once
+  // Listen to schedules for the signed-in user
   useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) setItems(JSON.parse(raw));
-      } catch (e) {
-        console.log("Failed to load schedule", e);
-      } finally {
+    const user = firebase_auth.currentUser;
+
+    // If not signed in yet, keep empty
+    if (!user) {
+      setItems([]);
+      setLoaded(true);
+      return;
+    }
+
+    setLoaded(false);
+    const listRef = ref(firebase_db, `schedules/${user.uid}`);
+
+    const unsub = onValue(
+      listRef,
+      (snap) => {
+        const val = snap.val();
+        const arr = val ? Object.values(val) : [];
+        // newest first
+        arr.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setItems(arr);
+        setLoaded(true);
+      },
+      (err) => {
+        console.log("Schedule listen error:", err?.message);
         setLoaded(true);
       }
-    })();
+    );
+
+    return () => unsub();
   }, []);
 
-  // Save when items changes
-  useEffect(() => {
-    if (!loaded) return;
-    (async () => {
-      try {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      } catch (e) {
-        console.log("Failed to save schedule", e);
-      }
-    })();
-  }, [items, loaded]);
-
-  function addItem({
+  // Add schedule -> Firebase
+  async function addItem({
     title,
     date,       // "YYYY-MM-DD"
     startTime,  // "HH:MM"
@@ -43,9 +51,15 @@ export function ScheduleProvider({ children }) {
     notes,
     crew,
   }) {
+    const user = firebase_auth.currentUser;
+    if (!user) throw new Error("Not signed in");
+
+    const listRef = ref(firebase_db, `schedules/${user.uid}`);
+    const newRef = push(listRef);
+
     const newItem = {
-      id: Date.now().toString(),
-      title,
+      id: newRef.key,
+      title: (title || "").trim(),
       date: (date || "").trim(),
       startTime: (startTime || "").trim(),
       endTime: (endTime || "").trim(),
@@ -53,37 +67,60 @@ export function ScheduleProvider({ children }) {
       notes: (notes || "").trim(),
       crew: (crew || "").trim() || "BL",
       status: "Planned",
-      createdAt: new Date().toLocaleString(),
+      createdAt: Date.now(),
     };
 
-    setItems((prev) => [newItem, ...prev]);
+    await set(newRef, newItem);
   }
 
-  function toggleDone(id) {
-    setItems((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? { ...x, status: x.status === "Done" ? "Planned" : "Done" }
-          : x
-      )
-    );
+  // Toggle done -> Firebase update
+  async function toggleDone(id) {
+    const user = firebase_auth.currentUser;
+    if (!user) throw new Error("Not signed in");
+
+    const current = items.find((x) => x.id === id);
+    if (!current) return;
+
+    const itemRef = ref(firebase_db, `schedules/${user.uid}/${id}`);
+    await update(itemRef, {
+      status: current.status === "Done" ? "Planned" : "Done",
+      updatedAt: Date.now(),
+    });
   }
 
-  function deleteItem(id) {
-    setItems((prev) => prev.filter((x) => x.id !== id));
+  // Delete item -> Firebase remove
+  async function deleteItem(id) {
+    const user = firebase_auth.currentUser;
+    if (!user) throw new Error("Not signed in");
+
+    const itemRef = ref(firebase_db, `schedules/${user.uid}/${id}`);
+    await remove(itemRef);
   }
 
-  function clearSchedule() {
-    setItems([]);
+  // Clear all schedules for user
+  async function clearSchedule() {
+    const user = firebase_auth.currentUser;
+    if (!user) throw new Error("Not signed in");
+
+    const listRef = ref(firebase_db, `schedules/${user.uid}`);
+    await remove(listRef);
   }
 
-  return (
-    <ScheduleContext.Provider
-      value={{ items, setItems, addItem, toggleDone, deleteItem, clearSchedule }}
-    >
-      {children}
-    </ScheduleContext.Provider>
+  const value = useMemo(
+    () => ({
+      items,
+      loaded,
+      addItem,
+      toggleDone,
+      deleteItem,
+      clearSchedule,
+      // keep setItems only if you REALLY need local UI updates (normally you don't)
+      setItems,
+    }),
+    [items, loaded]
   );
+
+  return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }
 
 export function useSchedule() {

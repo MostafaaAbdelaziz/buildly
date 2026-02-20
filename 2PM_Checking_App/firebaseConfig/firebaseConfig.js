@@ -14,7 +14,8 @@ const firebaseConfig = {
   storageBucket: "pm-checking-app.firebasestorage.app",
   messagingSenderId: "101927103411",
   appId: "1:101927103411:web:e3f1deaa8762ab9b59b9c6",
-  measurementId: "G-JGQ73KRNF3"
+  measurementId: "G-JGQ73KRNF3",
+  databaseURL: "https://pm-checking-app-default-rtdb.firebaseio.com",
 };
 
 // Initialize Firebase
