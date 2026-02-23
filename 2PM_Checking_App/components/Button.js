@@ -1,28 +1,8 @@
-import React, { useState } from "react";
-import { TouchableOpacity, StyleSheet, ActivityIndicator, View } from "react-native";
+import React, { useRef } from "react";
+import { Pressable, StyleSheet, ActivityIndicator, View, Animated } from "react-native";
 import { colors, typography, buttonColors } from "../constants/theme";
 import AppText from "./AppText";
 
-/**
- * Button — shared action button component.
- *
- * Variants:
- * - primary: main CTA, filled with primary color.
- * - secondary: neutral background with primary border/text.
- * - tertiary: text-only, no border, for low-emphasis actions.
- *
- * Props:
- * - title: string (button label)
- * - onPress: () => void
- * - variant?: "primary" | "secondary" | "tertiary"
- * - tone?: "positive" | "negative" | "neutral" (for primary/tertiary color)
- * - disabled?: boolean
- * - loading?: boolean (shows spinner, disables press)
- * - icon?: React.ReactNode (rendered to the left of the label)
- * - style?: ViewStyle (container override)
- * - textStyle?: TextStyle (label override)
- * - ...rest: forwarded to TouchableOpacity
- */
 export default function Button({
   title,
   onPress,
@@ -33,135 +13,175 @@ export default function Button({
   icon,
   style,
   textStyle,
+  size = "md",
+  fullWidth = false,
   ...rest
 }) {
-  const [pressed, setPressed] = useState(false);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
   const isDisabled = disabled || loading;
 
-  const { containerStyle, labelColor, spinnerColor, isTertiary } = getVariantStyles(
+  const sizes = {
+    sm: { paddingH: 14, paddingV: 10, shadow: 3 },
+    md: { paddingH: 18, paddingV: 14, shadow: 4 },
+    lg: { paddingH: 24, paddingV: 18, shadow: 5 },
+  };
+  const s = sizes[size] || sizes.md;
+
+  const { backgroundColor, labelColor, spinnerColor, borderColor } = getVariantStyles(
     variant,
     isDisabled,
     tone
   );
 
+  const handlePressIn = () => {
+    if (isDisabled) return;
+    Animated.parallel([
+      Animated.timing(translateX, { toValue: s.shadow, duration: 80, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: s.shadow, duration: 80, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.parallel([
+      Animated.timing(translateX, { toValue: 0, duration: 80, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 80, useNativeDriver: true }),
+    ]).start();
+    if (!isDisabled) {
+      onPress?.();
+    }
+  };
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={isDisabled ? undefined : onPress}
-      onPressIn={() => {
-        if (!isDisabled) setPressed(true);
-      }}
-      onPressOut={() => {
-        setPressed(false);
-      }}
-      style={[
-        styles.base,
-        containerStyle,
-        isDisabled && styles.disabled,
-        pressed && styles.pressed,
-        style,
-      ]}
-      {...rest}
-    >
-      {/* Grainy overlay to mimic textured buttons */}
-      <View pointerEvents="none" style={styles.grainLayer} />
-      {loading && (
-        <ActivityIndicator
-          size="small"
-          color={spinnerColor}
-          style={styles.spinner}
-        />
-      )}
-      {!!icon && !loading && <View style={styles.icon}>{icon}</View>}
-      <AppText
-        variant={isTertiary ? "caption" : "body"}
-        bold
-        style={[styles.label, { color: labelColor }, textStyle]}
-        numberOfLines={1}
+    <View style={[styles.buttonWrapper, fullWidth && styles.fullWidth, style]}>
+      <View
+        style={[
+          styles.shadow,
+          {
+            top: s.shadow,
+            left: s.shadow,
+            backgroundColor: colors.shadow || "#111",
+            borderColor: colors.shadow || "#111",
+          },
+        ]}
+      />
+
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        style={[styles.pressableWrapper, fullWidth && styles.fullWidth]}
+        {...rest}
       >
-        {title}
-      </AppText>
-    </TouchableOpacity>
+        <Animated.View
+          style={[
+            styles.buttonFace,
+            {
+              backgroundColor,
+              borderColor,
+              paddingHorizontal: s.paddingH,
+              paddingVertical: s.paddingV,
+              transform: [{ translateX }, { translateY }],
+            },
+            fullWidth && styles.fullWidth,
+            isDisabled && styles.disabled,
+          ]}
+        >
+          <View style={[styles.contentRow, fullWidth && styles.fullWidth]}>
+            {loading && (
+              <ActivityIndicator
+                size="small"
+                color={spinnerColor}
+                style={styles.spinner}
+              />
+            )}
+            {!!icon && !loading && <View style={styles.icon}>{icon}</View>}
+            <AppText
+              variant="body"
+              bold
+              style={[styles.label, { color: labelColor }, textStyle]}
+              numberOfLines={1}
+            >
+              {title}
+            </AppText>
+          </View>
+        </Animated.View>
+      </Pressable>
+    </View>
   );
 }
 
 function getVariantStyles(variant, disabled, tone) {
-  const toneKey = tone === "negative" ? "Negative" : "Positive";
-
   switch (variant) {
     case "secondary":
       return {
-        containerStyle: {
-          backgroundColor: buttonColors.secondary.background,
-          borderColor: buttonColors.secondary.border,
-          borderWidth: 1,
-          shadowOpacity: 0.2,
-        },
+        backgroundColor: buttonColors.secondary.background,
+        borderColor: colors.shadow || "#111",
         labelColor: disabled ? colors.textSecondary : colors.text,
         spinnerColor: colors.text,
-        isTertiary: false,
       };
     case "tertiary":
       const tertiaryPalette =
         tone === "negative" ? buttonColors.tertiaryNegative : buttonColors.tertiaryPositive;
       return {
-        containerStyle: {
-          backgroundColor: tertiaryPalette.background,
-          borderColor: tertiaryPalette.border,
-          borderWidth: 1,
-          minHeight: 40,
-          paddingVertical: 10,
-          shadowOpacity: 0.2,
-        },
+        backgroundColor: tertiaryPalette.background,
+        borderColor: colors.shadow || "#111",
         labelColor: disabled ? colors.textSecondary : tertiaryPalette.border,
         spinnerColor: tertiaryPalette.border,
-        isTertiary: true,
       };
     case "primary":
     default:
       const primaryPalette =
         tone === "negative" ? buttonColors.primaryNegative : buttonColors.primaryPositive;
       return {
-        containerStyle: {
-          backgroundColor: primaryPalette.background,
-          borderColor: primaryPalette.border,
-          borderWidth: 1,
-        },
+        backgroundColor: primaryPalette.background,
+        borderColor: colors.shadow || "#111",
         labelColor: colors.textOnPrimary,
         spinnerColor: colors.textOnPrimary,
-        isTertiary: false,
       };
   }
 }
 
 const styles = StyleSheet.create({
-  base: {
-    minHeight: 52,
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+  buttonWrapper: {
+    position: "relative",
+    marginVertical: 4,
+  },
+  fullWidth: {
+    width: "100%",
+    alignItems: "center",
+  },
+  shadow: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: "#111",
+    borderWidth: 2.5,
+    borderColor: "#111",
+  },
+  pressableWrapper: {
+    position: "relative",
+  },
+  buttonFace: {
+    borderWidth: 2.5,
+    borderColor: "#111",
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 52,
+  },
+  contentRow: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    marginVertical: 4,
-    shadowColor: buttonColors.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 6,
-    position: "relative",
-    overflow: "hidden",
   },
   label: {
     ...typography.body,
-  },
-  pressed: {
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 2,
-    transform: [{ translateY: 2 }],
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
   disabled: {
     opacity: 0.6,
@@ -171,11 +191,6 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: 8,
-  },
-  grainLayer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    opacity: 0.6,
   },
 });
 
