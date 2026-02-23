@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { Button, StyleSheet, Text, TextInput, View, TouchableOpacity } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { ref, set } from "firebase/database";
 import { firebase_auth, firebase_db } from "../firebaseConfig/firebaseConfig";
+import ThemedTextInput from "../components/ThemedTextInput";
+import Button from "../components/Button";
 
 export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -79,28 +81,28 @@ export default function RegisterScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <TextInput
-        style={styles.input}
+      <ThemedTextInput
+        label="First name"
         placeholder="First Name"
         value={firstName}
         onChangeText={setFirstName}
       />
-      <TextInput
-        style={styles.input}
+      <ThemedTextInput
+        label="Last name"
         placeholder="Last Name"
         value={lastName}
         onChangeText={setLastName}
       />
-      <TextInput
-        style={styles.input}
+      <ThemedTextInput
+        label="Email"
         placeholder="Email"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
       />
-      <TextInput
-        style={styles.input}
+      <ThemedTextInput
+        label="Password"
         placeholder="Password"
         secureTextEntry
         value={password}
@@ -112,7 +114,11 @@ export default function RegisterScreen({ navigation }) {
       </View>
 
       <View style={styles.buttonContainer}>
-        <Button title="Back to Login" onPress={() => navigation.goBack()} />
+        <Button
+          variant="secondary"
+          title="Back to Login"
+          onPress={() => navigation.goBack()}
+        />
       </View>
     </View>
   );
@@ -138,14 +144,5 @@ const styles = StyleSheet.create({
   roleText: { fontWeight: "900", opacity: 0.7 },
   roleTextActive: { color: "white", opacity: 1 },
 
-  input: {
-    height: 44,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    marginBottom: 12,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "white",
-  },
   buttonContainer: { paddingVertical: 6 },
 });
