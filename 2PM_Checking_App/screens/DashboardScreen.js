@@ -1,33 +1,36 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native"
-import { firebase_auth } from "../firebaseConfig/firebaseConfig";
+import { View, StyleSheet } from "react-native";
 import { useAuth } from "../context/AuthContext";
-import { ROLES } from "../constants/roles";
 import { getRoleConfig } from "../constants/roleConfig";
+import Screen from "../components/Screen";
+import DashboardHeader from "../components/DashboardHeader";
+import SiteTaskList from "../components/SiteTaskList";
+import DashboardFAB from "../components/DashboardFAB";
 
-export default function DashboardScreen() {
-  const { user, role } = useAuth();
-  //const user = firebase_auth.currentUser;
-  
-  const name = user ? user.displayName : "User";
-  const roleLabel = role ? ROLES[role] : "User";
+const MOCK_SITE_TASKS = [
+  { id: "1", siteName: "Site A", taskName: "Task X", days: 3 },
+  { id: "2", siteName: "Site B", taskName: "Task Y", days: 5 },
+  { id: "3", siteName: "Site C", taskName: "Task Z", days: 7 },
+];
+
+export default function DashboardScreen({ navigation }) {
+  const { role } = useAuth();
   const roleConfig = getRoleConfig(role);
-  const homeTitle = roleConfig.homeTitle;
-
+  const headerLabel = roleConfig.homeHeaderLabel || roleConfig.homeTitle || "HOME";
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{homeTitle}</Text>
-      <Text style={styles.welcome}>
-        Hello {name} !
-      </Text>
-      <Text>Welcome to the 2PM Construction Coordination App</Text>
-    </View>
+    <Screen>
+      <DashboardHeader title={headerLabel} />
+      <View style={styles.listContainer}>
+        <SiteTaskList data={MOCK_SITE_TASKS} />
+      </View>
+      <DashboardFAB navigation={navigation} />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
-  welcome: { fontSize: 30, marginBottom: 10 }
+  listContainer: {
+    flex: 1,
+  },
 });

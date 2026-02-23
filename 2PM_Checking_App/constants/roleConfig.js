@@ -5,6 +5,7 @@ export const ROLE_CONFIG = {
     key: ROLES.MANAGER,
     label: "Manager",
     homeTitle: "Dashboard – Manager",
+    homeHeaderLabel: "HOME (MGR)",
     description: "Oversees projects, schedules, and issues.",
     // Example capabilities you can hook into screens:
     canCreateSchedule: true,
@@ -16,6 +17,7 @@ export const ROLE_CONFIG = {
     key: ROLES.FOREMAN,
     label: "Foreman",
     homeTitle: "Dashboard – Foreman",
+    homeHeaderLabel: "HOME (FM)",
     description: "Views assigned work and reports issues from the field.",
     canCreateSchedule: false,
     canEditAnySchedule: false,
@@ -26,6 +28,7 @@ export const ROLE_CONFIG = {
     key: ROLES.SUBCONTRACTOR,
     label: "Subcontractor",
     homeTitle: "Dashboard – Subcontractor",
+    homeHeaderLabel: "HOME (SUB)",
     description: "Views assigned work and reports issues from the field.",
     canCreateSchedule: false,
     canEditAnySchedule: false,
