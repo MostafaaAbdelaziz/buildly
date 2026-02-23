@@ -1,15 +1,23 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native"
 import { firebase_auth } from "../firebaseConfig/firebaseConfig";
-
+import { useAuth } from "../context/AuthContext";
+import { ROLES } from "../constants/roles";
+import { getRoleConfig } from "../constants/roleConfig";
 
 export default function DashboardScreen() {
-
-  const user = firebase_auth.currentUser;
+  const { user, role } = useAuth();
+  //const user = firebase_auth.currentUser;
+  
   const name = user ? user.displayName : "User";
+  const roleLabel = role ? ROLES[role] : "User";
+  const roleConfig = getRoleConfig(role);
+  const homeTitle = roleConfig.homeTitle;
+
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
+      <Text style={styles.title}>{homeTitle}</Text>
       <Text style={styles.welcome}>
         Hello {name} !
       </Text>
