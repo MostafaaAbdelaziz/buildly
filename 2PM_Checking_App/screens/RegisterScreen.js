@@ -47,8 +47,8 @@ export default function RegisterScreen({ navigation }) {
       alert(`Sign up success. ${cleanEmail} (${role})`);
       navigation.replace("Login");
     } catch (error) {
-      console.log(error.message);
-      alert(error.message);
+      console.log("SIGNUP ERROR:", error.code, error.message);
+      alert(error.code);
     }
   };
 
