@@ -16,6 +16,7 @@ import ScheduleDetailScreen from "./screens/ScheduleDetailScreen";
 import { IssuesProvider } from "./context/IssuesContext";
 import { ScheduleProvider } from "./context/ScheduleContext";
 import { AuthProvider } from "./context/AuthContext";
+import TrashScreen from "./screens/TrashScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -33,6 +34,7 @@ export default function App() {
 
               <Stack.Screen name="CreateIssue" component={CreateIssueScreen} options={{ title: "Create Issue" }} />
               <Stack.Screen name="IssueDetail" component={IssueDetailScreen} options={{ title: "Issue Detail" }} />
+              <Stack.Screen name="Trash" component={TrashScreen} options={{ title: "Trash" }} />
 
               <Stack.Screen name="CreateSchedule" component={CreateScheduleScreen} options={{ title: "Create Schedule" }} />
               <Stack.Screen name="ScheduleDetail" component={ScheduleDetailScreen} options={{ title: "Schedule Detail" }} />

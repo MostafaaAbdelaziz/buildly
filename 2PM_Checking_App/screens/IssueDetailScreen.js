@@ -1,37 +1,39 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from "react-native";
 import { useIssues } from "../context/IssuesContext";
+import { useAuth } from "../context/AuthContext";
 
 const STATUSES = ["Open", "In Progress", "Resolved"];
 
 export default function IssueDetailScreen({ route, navigation }) {
   const { issue } = route.params;
-  const { issues, setIssues } = useIssues();
+
+  const { issues, updateIssue, softDeleteIssue } = useIssues();
+  const { role } = useAuth();
+  const isManager = role === "manager";
 
   const currentIssue = useMemo(() => {
     return issues.find((i) => i.id === issue.id) || issue;
   }, [issues, issue]);
 
-  function updateStatus(newStatus) {
-    if (!setIssues) {
-      Alert.alert("Error", "setIssues is not available in IssuesContext.");
-      return;
-    }
-
-    // OPTION B: resolved deletes the issue
-    if (newStatus === "Resolved") {
-      setIssues((prev) => prev.filter((i) => i.id !== currentIssue.id));
-      navigation.goBack();
-      return;
-    }
-
-    setIssues((prev) =>
-      prev.map((i) =>
-        i.id === currentIssue.id ? { ...i, status: newStatus } : i
-      )
-    );
-
+  function handleChangeStatus(newStatus) {
+    //  DON'T delete here
+    updateIssue(currentIssue.id, { status: newStatus });
     navigation.setOptions({ title: newStatus });
+  }
+
+  function confirmMoveToTrash() {
+    Alert.alert("Move to Trash", "Do you want to move this issue to Trash?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Move",
+        style: "destructive",
+        onPress: () => {
+          softDeleteIssue(currentIssue.id);
+          navigation.goBack();
+        },
+      },
+    ]);
   }
 
   return (
@@ -50,9 +52,9 @@ export default function IssueDetailScreen({ route, navigation }) {
           {currentIssue.description || "No description provided."}
         </Text>
 
-        {currentIssue.image && (
+        {currentIssue.image ? (
           <Image source={{ uri: currentIssue.image }} style={styles.photo} />
-        )}
+        ) : null}
       </View>
 
       <Text style={styles.sectionTitle}>Update status</Text>
@@ -60,12 +62,11 @@ export default function IssueDetailScreen({ route, navigation }) {
       <View style={styles.row}>
         {STATUSES.map((status) => {
           const active = currentIssue.status === status;
-
           return (
             <TouchableOpacity
               key={status}
               style={[styles.btn, active && styles.btnActive]}
-              onPress={() => updateStatus(status)}
+              onPress={() => handleChangeStatus(status)}
             >
               <Text style={[styles.btnText, active && styles.btnTextActive]}>
                 {status}
@@ -75,9 +76,20 @@ export default function IssueDetailScreen({ route, navigation }) {
         })}
       </View>
 
+      {/*  Move to trash button */}
+      <TouchableOpacity style={[styles.bigBtn, styles.trashBtn]} onPress={confirmMoveToTrash}>
+        <Text style={styles.bigBtnText}>Move to Trash</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
         <Text style={styles.backText}>Back to Issues</Text>
       </TouchableOpacity>
+
+      {!isManager ? (
+        <Text style={{ marginTop: 12, opacity: 0.6, fontWeight: "700" }}>
+          Foreman view: only managers can permanently delete from Trash.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -91,6 +103,7 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 12,
     padding: 12,
+    backgroundColor: "white",
   },
   line: { marginBottom: 6 },
 
@@ -106,16 +119,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
     alignItems: "center",
+    backgroundColor: "white",
   },
   btnActive: { backgroundColor: "black", borderColor: "black" },
   btnText: { fontWeight: "700" },
   btnTextActive: { color: "white" },
 
-  backBtn: {
-    marginTop: 18,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "#333",
-  },
+  bigBtn: { marginTop: 14, padding: 14, borderRadius: 12 },
+  trashBtn: { backgroundColor: "#B00020" },
+  bigBtnText: { color: "white", fontWeight: "900", textAlign: "center" },
+
+  backBtn: { marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: "#333" },
   backText: { color: "white", fontWeight: "700", textAlign: "center" },
 });
