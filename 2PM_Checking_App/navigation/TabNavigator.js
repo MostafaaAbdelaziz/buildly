@@ -7,6 +7,7 @@ import ScheduleScreen from "../screens/ScheduleScreen";
 import MapScreen from "../screens/MapScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import TrashScreen from "../screens/TrashScreen";
+import GanttChartScreen from "../screens/GanttChartScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -15,7 +16,7 @@ export default function TabsNavigator() {
     <Tab.Navigator screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Issues" component={IssuesScreen} />
-      <Tab.Screen name="Schedule" component={ScheduleScreen} />
+      <Tab.Screen name="Schedule" component={GanttChartScreen} />
       <Tab.Screen name="Map" component={MapScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="Trash" component={TrashScreen} />
