@@ -1,19 +1,11 @@
 import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Pressable,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Pressable } from "react-native";
 import { useSchedule } from "../context/ScheduleContext";
+import { useAuth } from "../context/AuthContext";
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
-
-// Timeline sizing
-const START_HOUR = 6;   // 6am
-const END_HOUR = 20;    // 8pm
+const START_HOUR = 6;
+const END_HOUR = 20;
 const PX_PER_HOUR = 60;
 
 const ROW_HEIGHT = 64;
@@ -22,13 +14,10 @@ const ROW_GAP = 14;
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
-
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
-
-// "HH:MM" -> minutes
 function timeToMinutes(t) {
   if (!t || typeof t !== "string" || !t.includes(":")) return null;
   const [hh, mm] = t.split(":");
@@ -37,17 +26,13 @@ function timeToMinutes(t) {
   if (Number.isNaN(h) || Number.isNaN(m)) return null;
   return h * 60 + m;
 }
-
-// Monday of the week for a given YYYY-MM-DD
 function startOfWeekISO(iso) {
   const d = new Date(iso + "T00:00:00");
-  const day = d.getDay(); // Sun=0..Sat=6
-  const diffToMonday = (day + 6) % 7; // Mon=0 -> 0, Sun=0 -> 6
+  const day = d.getDay();
+  const diffToMonday = (day + 6) % 7;
   d.setDate(d.getDate() - diffToMonday);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
-
-// add days to YYYY-MM-DD
 function addDaysISO(iso, add) {
   const d = new Date(iso + "T00:00:00");
   d.setDate(d.getDate() + add);
@@ -56,10 +41,11 @@ function addDaysISO(iso, add) {
 
 export default function ScheduleScreen({ navigation }) {
   const { items } = useSchedule();
+  const { role } = useAuth();
+  const isManager = role === "manager";
 
   const [projectOpen, setProjectOpen] = useState(false);
   const [project, setProject] = useState("Project CE4 5297 Red Street");
-
   const [selectedDate, setSelectedDate] = useState(todayISO());
 
   const weekStart = useMemo(() => startOfWeekISO(selectedDate), [selectedDate]);
@@ -69,20 +55,13 @@ export default function ScheduleScreen({ navigation }) {
   );
 
   const tasksForSelectedDate = useMemo(() => {
-    // only show items that match selectedDate
     return items
       .filter((x) => x.date === selectedDate)
       .map((x) => {
         const startMin = timeToMinutes(x.startTime) ?? 9 * 60;
-        const endMin = timeToMinutes(x.endTime) ?? (startMin + 2 * 60);
-
-        return {
-          ...x,
-          startMin,
-          endMin: Math.max(endMin, startMin + 30),
-        };
+        const endMin = timeToMinutes(x.endTime) ?? startMin + 2 * 60;
+        return { ...x, startMin, endMin: Math.max(endMin, startMin + 30) };
       })
-      // sort by start time so lanes look neat
       .sort((a, b) => a.startMin - b.startMin);
   }, [items, selectedDate]);
 
@@ -90,10 +69,7 @@ export default function ScheduleScreen({ navigation }) {
 
   const selectedTask = useMemo(() => {
     if (!tasksForSelectedDate.length) return null;
-    return (
-      tasksForSelectedDate.find((t) => t.id === selectedTaskId) ||
-      tasksForSelectedDate[0]
-    );
+    return tasksForSelectedDate.find((t) => t.id === selectedTaskId) || tasksForSelectedDate[0];
   }, [tasksForSelectedDate, selectedTaskId]);
 
   const timelineWidth = (END_HOUR - START_HOUR) * PX_PER_HOUR;
@@ -105,32 +81,24 @@ export default function ScheduleScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Schedule</Text>
         <Text style={styles.bell}>🔔</Text>
       </View>
 
-      {/* Project dropdown (UI only for now) */}
       <View style={styles.projectWrap}>
         <TouchableOpacity
           style={styles.projectButton}
           onPress={() => setProjectOpen((v) => !v)}
           activeOpacity={0.85}
         >
-          <Text style={styles.projectText} numberOfLines={1}>
-            {project}
-          </Text>
+          <Text style={styles.projectText} numberOfLines={1}>{project}</Text>
           <Text style={styles.chev}>{projectOpen ? "▲" : "▼"}</Text>
         </TouchableOpacity>
 
         {projectOpen && (
           <View style={styles.dropdown}>
-            {[
-              "Project CE4 5297 Red Street",
-              "Project Harbor View",
-              "Project Downtown Tower",
-            ].map((p) => (
+            {["Project CE4 5297 Red Street", "Project Harbor View", "Project Downtown Tower"].map((p) => (
               <TouchableOpacity
                 key={p}
                 style={styles.dropItem}
@@ -146,7 +114,6 @@ export default function ScheduleScreen({ navigation }) {
         )}
       </View>
 
-      {/* Day strip (dynamic week) */}
       <View style={styles.daysRow}>
         {weekDates.map((iso, idx) => {
           const active = iso === selectedDate;
@@ -160,40 +127,37 @@ export default function ScheduleScreen({ navigation }) {
                 setSelectedTaskId(null);
               }}
             >
-              <Text style={[styles.dayText, active && styles.dayTextActive]}>
-                {DAYS[idx]}
-              </Text>
-              <Text style={[styles.dayNum, active && styles.dayTextActive]}>
-                {dayNum}
-              </Text>
+              <Text style={[styles.dayText, active && styles.dayTextActive]}>{DAYS[idx]}</Text>
+              <Text style={[styles.dayNum, active && styles.dayTextActive]}>{dayNum}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Add button */}
+      {/* Add button only for manager */}
       <View style={styles.addRow}>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => navigation.navigate("CreateSchedule")}
-        >
-          <Text style={styles.addText}>+ Add</Text>
-        </TouchableOpacity>
+        {isManager ? (
+          <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate("CreateSchedule")}>
+            <Text style={styles.addText}>+ Add</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleBadgeText}>Foreman view</Text>
+          </View>
+        )}
 
         <Text style={styles.dateText}>{selectedDate}</Text>
       </View>
 
-      {/* Timeline */}
       <View style={styles.timelineOuter}>
         {tasksForSelectedDate.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyTitle}>No schedule items</Text>
-            <Text style={styles.emptySub}>Tap “+ Add” to create one.</Text>
+            {isManager ? <Text style={styles.emptySub}>Tap “+ Add” to create one.</Text> : null}
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ width: timelineWidth, paddingRight: 18 }}>
-              {/* Hour grid */}
               <View style={styles.gridRow}>
                 {Array.from({ length: END_HOUR - START_HOUR + 1 }).map((_, i) => {
                   const hour = START_HOUR + i;
@@ -206,36 +170,31 @@ export default function ScheduleScreen({ navigation }) {
                 })}
               </View>
 
-              {/* Task bars */}
               <View style={{ marginTop: 12 }}>
                 {tasksForSelectedDate.map((t, idx) => {
                   const x = minutesToX(t.startMin);
                   const w = Math.max(72, minutesToX(t.endMin) - minutesToX(t.startMin));
                   const y = idx * (ROW_HEIGHT + ROW_GAP);
-                  const selected = t.id === (selectedTask?.id);
+                  const selected = t.id === selectedTask?.id;
 
                   return (
                     <Pressable
                       key={t.id}
                       onPress={() => setSelectedTaskId(t.id)}
-                      onLongPress={() => navigation.navigate("ScheduleDetail", { item: t })}
+                      onLongPress={() => {
+                        // Only manager can open detail/edit screen
+                        if (isManager) navigation.navigate("ScheduleDetail", { item: t });
+                      }}
                       style={[
                         styles.taskBar,
-                        {
-                          left: x,
-                          top: y,
-                          width: w,
-                          position: "absolute",
-                        },
+                        { left: x, top: y, width: w, position: "absolute" },
                         selected && styles.taskBarSelected,
                         t.status === "Done" && styles.taskBarDone,
                       ]}
                     >
                       <View style={styles.taskLeft}>
                         <Text style={styles.taskIcon}>📌</Text>
-                        <Text style={styles.taskTitle} numberOfLines={1}>
-                          {t.title}
-                        </Text>
+                        <Text style={styles.taskTitle} numberOfLines={1}>{t.title}</Text>
                       </View>
 
                       <View style={styles.crewBubble}>
@@ -252,11 +211,12 @@ export default function ScheduleScreen({ navigation }) {
         )}
       </View>
 
-      {/* Detail card */}
       {selectedTask && (
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => navigation.navigate("ScheduleDetail", { item: selectedTask })}
+          onPress={() => {
+            if (isManager) navigation.navigate("ScheduleDetail", { item: selectedTask });
+          }}
           style={styles.detailCard}
         >
           <Text style={styles.detailTitle}>{selectedTask.title}</Text>
@@ -278,6 +238,12 @@ export default function ScheduleScreen({ navigation }) {
           <Text style={styles.detailNotes} numberOfLines={2}>
             {selectedTask.notes || "No notes yet."}
           </Text>
+
+          {!isManager && (
+            <Text style={{ marginTop: 10, fontWeight: "800", opacity: 0.5 }}>
+              Only managers can edit schedules.
+            </Text>
+          )}
         </TouchableOpacity>
       )}
     </View>
@@ -287,84 +253,35 @@ export default function ScheduleScreen({ navigation }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#f4f4f6" },
 
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerTitle: { fontSize: 28, fontWeight: "900" },
   bell: { fontSize: 18, opacity: 0.7 },
 
   projectWrap: { paddingHorizontal: 16, marginBottom: 8 },
-  projectButton: {
-    backgroundColor: "white",
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: "#e5e5ea",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  projectButton: { backgroundColor: "white", borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: "#e5e5ea", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   projectText: { fontWeight: "700", opacity: 0.85, flex: 1, paddingRight: 10 },
   chev: { opacity: 0.5 },
 
-  dropdown: {
-    marginTop: 8,
-    backgroundColor: "white",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#e5e5ea",
-    overflow: "hidden",
-  },
+  dropdown: { marginTop: 8, backgroundColor: "white", borderRadius: 14, borderWidth: 1, borderColor: "#e5e5ea", overflow: "hidden" },
   dropItem: { padding: 12 },
   dropItemText: { fontWeight: "700", opacity: 0.85 },
 
-  daysRow: {
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 8,
-  },
-  dayPill: {
-    flex: 1,
-    backgroundColor: "white",
-    borderRadius: 14,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e5e5ea",
-  },
+  daysRow: { paddingHorizontal: 16, flexDirection: "row", gap: 10, marginBottom: 8 },
+  dayPill: { flex: 1, backgroundColor: "white", borderRadius: 14, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#e5e5ea" },
   dayPillActive: { backgroundColor: "#111", borderColor: "#111" },
   dayText: { fontWeight: "800", opacity: 0.7 },
   dayNum: { marginTop: 3, fontWeight: "800", opacity: 0.55 },
   dayTextActive: { color: "white", opacity: 1 },
 
-  addRow: {
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
+  addRow: { paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   addBtn: { backgroundColor: "black", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12 },
   addText: { color: "white", fontWeight: "900" },
   dateText: { fontWeight: "800", opacity: 0.6 },
 
-  timelineOuter: {
-    marginTop: 6,
-    marginHorizontal: 16,
-    backgroundColor: "white",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e5e5ea",
-    padding: 12,
-    flex: 1,
-  },
+  roleBadge: { backgroundColor: "white", borderWidth: 1, borderColor: "#e5e5ea", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12 },
+  roleBadgeText: { fontWeight: "900", opacity: 0.65 },
+
+  timelineOuter: { marginTop: 6, marginHorizontal: 16, backgroundColor: "white", borderRadius: 16, borderWidth: 1, borderColor: "#e5e5ea", padding: 12, flex: 1 },
 
   emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyTitle: { fontSize: 18, fontWeight: "900", opacity: 0.8 },
@@ -375,17 +292,7 @@ const styles = StyleSheet.create({
   hourLine: { height: 12, width: 1, backgroundColor: "#e5e5ea", marginBottom: 6 },
   hourText: { fontSize: 11, opacity: 0.5, fontWeight: "700" },
 
-  taskBar: {
-    height: ROW_HEIGHT,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    backgroundColor: "#f3f3f5",
-    borderWidth: 1,
-    borderColor: "#ececf0",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  taskBar: { height: 64, borderRadius: 18, paddingHorizontal: 14, backgroundColor: "#f3f3f5", borderWidth: 1, borderColor: "#ececf0", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   taskBarSelected: { borderColor: "#111" },
   taskBarDone: { opacity: 0.6 },
 
@@ -393,25 +300,10 @@ const styles = StyleSheet.create({
   taskIcon: { fontSize: 16 },
   taskTitle: { fontWeight: "800", opacity: 0.85, flex: 1 },
 
-  crewBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#ddd",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  crewBubble: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#ddd", alignItems: "center", justifyContent: "center" },
   crewText: { fontWeight: "900", opacity: 0.7 },
 
-  detailCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: "white",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#e5e5ea",
-    padding: 14,
-  },
+  detailCard: { marginHorizontal: 16, marginBottom: 16, backgroundColor: "white", borderRadius: 18, borderWidth: 1, borderColor: "#e5e5ea", padding: 14 },
   detailTitle: { fontSize: 20, fontWeight: "900" },
 
   detailMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
@@ -420,7 +312,6 @@ const styles = StyleSheet.create({
   detailTime: { fontWeight: "800", opacity: 0.55 },
 
   detailLocation: { marginTop: 10, fontWeight: "800", opacity: 0.6 },
-
   detailNotesLabel: { marginTop: 12, fontWeight: "900", opacity: 0.7 },
   detailNotes: { marginTop: 6, fontWeight: "700", opacity: 0.55 },
 });

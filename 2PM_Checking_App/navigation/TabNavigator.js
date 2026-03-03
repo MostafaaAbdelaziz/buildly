@@ -6,6 +6,7 @@ import IssuesScreen from "../screens/IssuesScreen";
 import ScheduleScreen from "../screens/ScheduleScreen";
 import MapScreen from "../screens/MapScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import TrashScreen from "../screens/TrashScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -17,6 +18,7 @@ export default function TabsNavigator() {
       <Tab.Screen name="Schedule" component={ScheduleScreen} />
       <Tab.Screen name="Map" component={MapScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Trash" component={TrashScreen} />
     </Tab.Navigator>
   );
 }
