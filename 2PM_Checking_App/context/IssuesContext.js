@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const IssuesContext = createContext(null);
 
 // ✅ bump version so old storage doesn't break if needed
-const STORAGE_KEY = "issues_v2";
+const STORAGE_KEY = "issues_v3";
 
 // how long deleted issues stay in trash (7 days)
 const TRASH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -80,20 +80,28 @@ export function IssuesProvider({ children }) {
     return () => clearInterval(interval);
   }, [loaded]);
 
-  function addIssue({ title, priority, description, image }) {
-    const newIssue = {
-      id: now().toString(),
-      title: (title || "").trim(),
-      description: (description || "").trim(),
-      image: image || null,
-      status: "Open",
-      priority: (priority || "Medium").trim(),
-      createdAt: new Date().toLocaleString(),
-      createdAtTs: now(),
-    };
+  function addIssue({ title, priority, description, image, location }) {
+  const newIssue = {
+    id: `${now()}_${Math.random().toString(16).slice(2)}`,
+    title: (title || "").trim(),
+    description: (description || "").trim(),
+    image: image || null,
+    status: "Open",
+    priority: (priority || "Medium").trim(),
+    createdAt: new Date().toLocaleString(),
+    createdAtTs: now(),
 
-    setIssues((prev) => [newIssue, ...prev]);
-  }
+    // ✅ SAVE LOCATION
+    location: location
+      ? {
+          latitude: Number(location.latitude),
+          longitude: Number(location.longitude),
+        }
+      : null,
+  };
+
+  setIssues((prev) => [newIssue, ...prev]);
+}
 
   // ✅ update issue fields (status, priority, etc.)
   function updateIssue(id, patch) {
