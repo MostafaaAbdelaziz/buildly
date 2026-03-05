@@ -10,7 +10,7 @@ const MOCK_PROJECTS = [
   { id: "p3", name: "Project CE4 5297 Red Street", status: "Needs Attention" },
 ];
 
-export default function DashboardScreen({ navigation }) {
+export default function PMDashboard({ navigation }) {
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
 
   // Stable format: "Tue, March 3"
