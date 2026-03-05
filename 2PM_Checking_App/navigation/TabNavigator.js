@@ -20,6 +20,8 @@ export default function TabsNavigator() {
       <Tab.Screen name="Map" component={MapScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="Trash" component={TrashScreen} />
+      
     </Tab.Navigator>
+  
   );
 }
