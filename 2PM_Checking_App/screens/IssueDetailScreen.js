@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from "react-native";
 import { useIssues } from "../context/IssuesContext";
 import { useAuth } from "../context/AuthContext";
@@ -12,13 +12,17 @@ export default function IssueDetailScreen({ route, navigation }) {
   const { role } = useAuth();
   const isManager = role === "manager";
 
+  useEffect(() => {
+    navigation.setOptions({ title: issue.title || "Issue Detail" });
+  }, [issue.title, navigation]);
+
   const currentIssue = useMemo(() => {
-  return (
-    issues.find((i) => i.id === issue.id) ||
-    (trash || []).find((t) => t.id === issue.id) ||
-    issue
-  );
-}, [issues, trash, issue]);
+    return (
+      issues.find((i) => i.id === issue.id) ||
+      (trash || []).find((t) => t.id === issue.id) ||
+      issue
+    );
+  }, [issues, trash, issue]);
 
   const isTrashed = useMemo(() => {
     return (trash || []).some((t) => t.id === currentIssue.id);

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useIssues } from "../context/IssuesContext";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 
 export default function CreateIssueScreen({ navigation, route }) {
   const { addIssue } = useIssues();
@@ -54,15 +55,29 @@ useEffect(() => {
   }
 
   function openMapPicker() {
-  navigation.navigate("Tabs", {
-    screen: "Map",
-    params: {
-      mode: "pick",
-      initialLocation: location,
-      returnTo: "CreateIssue",
-    },
-  });
-}
+    navigation.navigate("Tabs", {
+      screen: "Map",
+      params: {
+        mode: "pick",
+        initialLocation: location,
+        returnTo: "CreateIssue",
+      },
+    });
+  }
+
+  async function useCurrentLocation() {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      alert("Permission needed to access your location.");
+      return;
+    }
+
+    const loc = await Location.getCurrentPositionAsync();
+    setLocation({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+    });
+  }
 
   function handleSave() {
   if (!title.trim()) return;
@@ -89,11 +104,16 @@ useEffect(() => {
  
       <Text style={styles.label}>Location</Text>
       <TouchableOpacity style={styles.outlineBtn} onPress={openMapPicker}>
+      
         <Text style={styles.outlineBtnText}>
           {location
             ? `Picked: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
             : "Pick location on map"}
         </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.currentLocationBtn, { marginTop: 10 }]} onPress={useCurrentLocation}>
+        <Text style={styles.currentLocationText}>Use current location</Text>
       </TouchableOpacity>
       <Text style={styles.label}>Title</Text>
       <TextInput
@@ -184,4 +204,13 @@ const styles = StyleSheet.create({
   btnText: { color: "white", fontWeight: "800", textAlign: "center" },
 
   preview: { width: "100%", height: 220, marginTop: 10, borderRadius: 12 },
+
+  currentLocationBtn: {
+    backgroundColor: "#f5f5f5",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  currentLocationText: { fontWeight: "700", textAlign: "center" },
 });
