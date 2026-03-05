@@ -12,9 +12,12 @@ import {
 import { useIssues } from "../context/IssuesContext";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
+import { useAuth } from "../context/AuthContext";
 
 export default function CreateIssueScreen({ navigation, route }) {
   const { addIssue } = useIssues();
+  const { user } = useAuth();
+
 
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("Medium");
@@ -22,18 +25,16 @@ export default function CreateIssueScreen({ navigation, route }) {
   const [image, setImage] = useState(null);
   const [location, setLocation] = useState(null); // { latitude, longitude }
 
-useEffect(() => {
-  const picked = route?.params?.pickedLocation;
-  if (picked) {
-    setLocation(picked);
+  useEffect(() => {
+    const picked = route?.params?.pickedLocation;
+    if (picked) {
+      setLocation(picked);
 
-    // clear so it doesn't keep reusing it
-    navigation.setParams({ pickedLocation: undefined });
-  }
-}, [route?.params?.pickedLocation]);
+      // clear so it doesn't keep reusing it
+      navigation.setParams({ pickedLocation: undefined });
+    }
+  }, [route?.params?.pickedLocation]);
   
-  
-
   async function pickImage() {
     if (Platform.OS !== "web") {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -87,12 +88,16 @@ useEffect(() => {
     return;
   }
 
+console.log("user.email", user?.email);
+console.log("user.displayName", user?.displayName);
+
   addIssue({
     title: title.trim(),
     priority: priority.trim(), // Low/Medium/High
     description: description.trim(),
     image: image || null,
     location, // ✅ required now
+    createdBy: user?.displayName || "Unknown",
   });
 
   navigation.goBack();

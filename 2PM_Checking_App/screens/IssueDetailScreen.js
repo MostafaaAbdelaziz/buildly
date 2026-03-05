@@ -12,11 +12,6 @@ export default function IssueDetailScreen({ route, navigation }) {
   const { role } = useAuth();
   const isManager = role === "manager";
 
-  //FIX BACK BUTTON NOT WORKING PROPERLY # TO DO BY MOSTAFAA
-  useEffect(() => {
-    navigation.setOptions({ title: issue.title || "Issue Detail" });
-  }, [issue.title, navigation]);
-
   const currentIssue = useMemo(() => {
     return (
       issues.find((i) => i.id === issue.id) ||
@@ -38,21 +33,20 @@ export default function IssueDetailScreen({ route, navigation }) {
     navigation.setOptions({ title: newStatus });
   }
 
-
   function confirmRestore() {
-  Alert.alert("Restore", "Restore this issue back to Current issues?", [
-    { text: "Cancel", style: "cancel" },
-    {
-      text: "Restore",
-      onPress: () => {
-        // Use restoreIssue if your context has it:
-        if (restoreIssue) restoreIssue(currentIssue.id);
+    Alert.alert("Restore", "Restore this issue back to Current issues?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Restore",
+        onPress: () => {
+          // Use restoreIssue if your context has it:
+          if (restoreIssue) restoreIssue(currentIssue.id);
 
-        navigation.goBack();
+          navigation.goBack();
+        },
       },
-    },
-  ]);
-}
+    ]);
+  }
   function confirmMoveToTrash() {
     Alert.alert("Move to Trash", "Do you want to move this issue to Trash?", [
       { text: "Cancel", style: "cancel" },
@@ -72,6 +66,10 @@ export default function IssueDetailScreen({ route, navigation }) {
       <Text style={styles.title}>{currentIssue.title}</Text>
 
       <View style={styles.infoBlock}>
+        
+        <Text style={styles.line}>
+  Created by: {currentIssue.createdBy || "Unknown"}
+</Text>
         <Text style={styles.line}>Priority: {currentIssue.priority}</Text>
         <Text style={styles.line}>Status: {currentIssue.status}</Text>
         <Text style={styles.line}>Created: {currentIssue.createdAt}</Text>
