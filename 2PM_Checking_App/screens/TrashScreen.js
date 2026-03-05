@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Image } from "react-native";
 import { useIssues } from "../context/IssuesContext";
 import { useAuth } from "../context/AuthContext";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TrashScreen({ navigation }) {
   const { trash, restoreIssue, permanentlyDeleteIssue, clearTrash } = useIssues();
@@ -46,7 +47,7 @@ export default function TrashScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Trash</Text>
 
@@ -113,12 +114,12 @@ export default function TrashScreen({ navigation }) {
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
         <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#f4f4f6" },
+  container: { flex: 1, paddingHorizontal: 16, paddingTop: 10, backgroundColor: "#f4f4f6" },
 
   headerRow: {
     flexDirection: "row",
