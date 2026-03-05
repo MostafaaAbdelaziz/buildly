@@ -12,6 +12,7 @@ export default function IssueDetailScreen({ route, navigation }) {
   const { role } = useAuth();
   const isManager = role === "manager";
 
+  //FIX BACK BUTTON NOT WORKING PROPERLY # TO DO BY MOSTAFAA
   useEffect(() => {
     navigation.setOptions({ title: issue.title || "Issue Detail" });
   }, [issue.title, navigation]);
