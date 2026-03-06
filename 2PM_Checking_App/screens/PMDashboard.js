@@ -50,15 +50,12 @@ export default function PMDashboard({ navigation }) {
           activeOpacity={0.85}
           style={styles.statusRow}
           onPress={() => {
-            // later navigate to check flow
+            navigation.navigate("2PMCheck");
           }}
         >
           <Text style={styles.statusRowText}>2PM Check Status</Text>
 
           <View style={styles.statusRight}>
-            <View style={styles.pill}>
-              <Text style={styles.pillText}>Pending</Text>
-            </View>
             <Text style={styles.chevronRight}>›</Text>
           </View>
         </TouchableOpacity>
