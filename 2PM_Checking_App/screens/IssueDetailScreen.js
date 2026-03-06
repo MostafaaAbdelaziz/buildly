@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from "react-native";
 import { useIssues } from "../context/IssuesContext";
 import { useAuth } from "../context/AuthContext";
@@ -8,13 +8,24 @@ const STATUSES = ["Open", "In Progress", "Resolved"];
 export default function IssueDetailScreen({ route, navigation }) {
   const { issue } = route.params;
 
-  const { issues, updateIssue, softDeleteIssue } = useIssues();
+  const { issues,trash,  updateIssue, softDeleteIssue, restoreIssue } = useIssues();
   const { role } = useAuth();
   const isManager = role === "manager";
 
   const currentIssue = useMemo(() => {
-    return issues.find((i) => i.id === issue.id) || issue;
-  }, [issues, issue]);
+    return (
+      issues.find((i) => i.id === issue.id) ||
+      (trash || []).find((t) => t.id === issue.id) ||
+      issue
+    );
+  }, [issues, trash, issue]);
+
+  const isTrashed = useMemo(() => {
+    return (trash || []).some((t) => t.id === currentIssue.id);
+  }, [trash, currentIssue.id]);
+
+  const isClosed = String(currentIssue.status || "").toLowerCase() === "closed";
+  const canEdit = !isTrashed && !isClosed;
 
   function handleChangeStatus(newStatus) {
     //  DON'T delete here
@@ -22,6 +33,20 @@ export default function IssueDetailScreen({ route, navigation }) {
     navigation.setOptions({ title: newStatus });
   }
 
+  function confirmRestore() {
+    Alert.alert("Restore", "Restore this issue back to Current issues?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Restore",
+        onPress: () => {
+          // Use restoreIssue if your context has it:
+          if (restoreIssue) restoreIssue(currentIssue.id);
+
+          navigation.goBack();
+        },
+      },
+    ]);
+  }
   function confirmMoveToTrash() {
     Alert.alert("Move to Trash", "Do you want to move this issue to Trash?", [
       { text: "Cancel", style: "cancel" },
@@ -41,6 +66,10 @@ export default function IssueDetailScreen({ route, navigation }) {
       <Text style={styles.title}>{currentIssue.title}</Text>
 
       <View style={styles.infoBlock}>
+        
+        <Text style={styles.line}>
+  Created by: {currentIssue.createdBy || "Unknown"}
+</Text>
         <Text style={styles.line}>Priority: {currentIssue.priority}</Text>
         <Text style={styles.line}>Status: {currentIssue.status}</Text>
         <Text style={styles.line}>Created: {currentIssue.createdAt}</Text>
@@ -57,6 +86,8 @@ export default function IssueDetailScreen({ route, navigation }) {
         ) : null}
       </View>
 
+    {canEdit && (
+      <>
       <Text style={styles.sectionTitle}>Update status</Text>
 
       <View style={styles.row}>
@@ -75,15 +106,18 @@ export default function IssueDetailScreen({ route, navigation }) {
           );
         })}
       </View>
+      </>
+    )}
 
-      {/*  Move to trash button */}
-      <TouchableOpacity style={[styles.bigBtn, styles.trashBtn]} onPress={confirmMoveToTrash}>
-        <Text style={styles.bigBtnText}>Move to Trash</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>Back to Issues</Text>
-      </TouchableOpacity>
+      {isTrashed ? (
+        <TouchableOpacity style={[styles.bigBtn, styles.restoreBtn]} onPress={confirmRestore}>
+          <Text style={styles.bigBtnText}>Restore</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity style={[styles.bigBtn, styles.trashBtn]} onPress={confirmMoveToTrash}>
+          <Text style={styles.bigBtnText}>Move to Trash</Text>
+        </TouchableOpacity>
+      )}
 
       {!isManager ? (
         <Text style={{ marginTop: 12, opacity: 0.6, fontWeight: "700" }}>
@@ -131,4 +165,5 @@ const styles = StyleSheet.create({
 
   backBtn: { marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: "#333" },
   backText: { color: "white", fontWeight: "700", textAlign: "center" },
+  restoreBtn: { backgroundColor: "#0A7D2C" },
 });

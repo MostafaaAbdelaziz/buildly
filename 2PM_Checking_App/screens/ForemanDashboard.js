@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from "react-native";
 import Screen from "../components/Screen";
-import WeatherRiskWidget from "../components/WeatherRiskWidget";
 
 // Demo data (replace with Firebase later)
 const MOCK_PROJECTS = [
@@ -10,7 +9,7 @@ const MOCK_PROJECTS = [
   { id: "p3", name: "Project CE4 5297 Red Street", status: "Needs Attention" },
 ];
 
-export default function DashboardScreen({ navigation }) {
+export default function ForemanDashboard({ navigation }) {
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
 
   // Stable format: "Tue, March 3"
@@ -50,21 +49,15 @@ export default function DashboardScreen({ navigation }) {
           activeOpacity={0.85}
           style={styles.statusRow}
           onPress={() => {
-            // later navigate to check flow
+            navigation.navigate("2PMCheck");
           }}
         >
           <Text style={styles.statusRowText}>2PM Check Status</Text>
 
           <View style={styles.statusRight}>
-            <View style={styles.pill}>
-              <Text style={styles.pillText}>Pending</Text>
-            </View>
             <Text style={styles.chevronRight}>›</Text>
           </View>
         </TouchableOpacity>
-
-        {/* Weather Risk Widget */}
-        <WeatherRiskWidget />
 
         {/* Assigned Projects */}
         <SectionHeader
@@ -87,13 +80,6 @@ export default function DashboardScreen({ navigation }) {
             ))}
           </View>
         )}
-
-        {/* Open issues today */}
-        <TouchableOpacity activeOpacity={0.85} style={styles.issuesRow}>
-          <Text style={styles.issuesIcon}>⚠️</Text>
-          <Text style={styles.issuesText}>5 open issues today</Text>
-          <Text style={styles.chevronRight}>›</Text>
-        </TouchableOpacity>
 
         <View style={{ height: 24 }} />
       </ScrollView>

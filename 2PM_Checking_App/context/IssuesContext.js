@@ -80,7 +80,7 @@ export function IssuesProvider({ children }) {
     return () => clearInterval(interval);
   }, [loaded]);
 
-  function addIssue({ title, priority, description, image, location }) {
+  function addIssue({ title, priority, description, image, location, createdBy }) {
   const newIssue = {
     id: `${now()}_${Math.random().toString(16).slice(2)}`,
     title: (title || "").trim(),
@@ -90,6 +90,7 @@ export function IssuesProvider({ children }) {
     priority: (priority || "Medium").trim(),
     createdAt: new Date().toLocaleString(),
     createdAtTs: now(),
+    createdBy: createdBy || "Unknown",
 
     // ✅ SAVE LOCATION
     location: location

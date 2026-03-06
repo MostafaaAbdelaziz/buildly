@@ -1,19 +1,25 @@
-import React from "react";
+import React, {useState, useMemo} from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from "react-native";
 import { useIssues } from "../context/IssuesContext";
 import { useAuth } from "../context/AuthContext";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function IssuesScreen({ navigation }) {
   const { issues, trash, clearTrash } = useIssues();
   const { role } = useAuth();
+  const [tab, setTab] = useState("current"); 
   const isManager = role === "manager";
+
+  const data =
+    tab === "current"
+      ? issues.filter(issue => issue.status?.toLowerCase() !== "closed")
+      : [...issues.filter(issue => issue.status?.toLowerCase() === "closed"), ...trash];
 
   function confirmEmptyTrash() {
     if (!isManager) {
       Alert.alert("Access denied", "Only managers can empty the trash.");
       return;
     }
-
     if (!trash || trash.length === 0) {
       Alert.alert("Trash", "Trash is already empty.");
       return;
@@ -30,21 +36,11 @@ export default function IssuesScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Issues</Text>
 
         <View style={styles.headerBtns}>
-          {/* Trash */}
-          <TouchableOpacity
-            style={styles.trashBtn}
-            onPress={() => navigation.navigate("Trash")}
-          >
-            <Text style={styles.trashText}>
-              Trash{trash?.length ? ` (${trash.length})` : ""}
-            </Text>
-          </TouchableOpacity>
-
           {/* Add */}
           <TouchableOpacity
             style={styles.addBtn}
@@ -62,8 +58,27 @@ export default function IssuesScreen({ navigation }) {
         </TouchableOpacity>
       ) : null}
 
+      <View style = {styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === "current" && styles.activeTab]}
+          onPress={() => setTab("current")}
+        >
+          <Text style={[styles.tabText, tab === "current" && styles.activeTabText]}>
+            Current ({issues.filter(issue => issue.status?.toLowerCase() !== "closed").length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === "closed" && styles.activeTab]}
+          onPress={() => setTab("closed")}
+        >
+          <Text style={[styles.tabText, tab === "closed" && styles.activeTabText]}>
+            Closed ({issues.filter(issue => issue.status?.toLowerCase() === "closed").length + trash.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
-        data={issues}
+        data={data}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={<Text style={{ opacity: 0.6 }}>No issues yet. Add one.</Text>}
         renderItem={({ item }) => (
@@ -79,12 +94,12 @@ export default function IssuesScreen({ navigation }) {
           </TouchableOpacity>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },
 
   headerRow: {
     flexDirection: "row",
@@ -121,4 +136,22 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: "700" },
   meta: { marginTop: 4 },
   time: { fontSize: 12, marginTop: 4, opacity: 0.6 },
+
+  tabs: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+   },
+  activeTab: { backgroundColor: "black" },
+  tabText: { fontWeight: "700", color: "#555" },
+  activeTabText: { color: "white" },
+
 });
