@@ -36,8 +36,8 @@ export default function NewSiteScreen({ route, navigation }) {
         cityState,
         description,
       });
-      await createSite(payload);
-      navigation.navigate("Tabs");
+      const ref = await createSite(payload);
+      navigation.navigate("SiteDetail", { siteId: ref.id });
     } catch (e) {
       console.log("NewSiteScreen create error:", e?.message);
       Alert.alert("Could not create site", "Something went wrong saving this site. Try again.");

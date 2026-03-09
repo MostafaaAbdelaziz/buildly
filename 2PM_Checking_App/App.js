@@ -20,6 +20,7 @@ import TrashScreen from "./screens/TrashScreen";
 import TwoPMCheckScreen from "./screens/TwoPMCheckScreen";
 import DrawingDetailScreen from "./screens/DrawingDetailScreen";
 import NewSiteScreen from "./screens/NewSiteScreen";
+import SiteDetailScreen from "./screens/SiteDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -47,6 +48,11 @@ export default function App() {
                 name="NewSite"
                 component={NewSiteScreen}
                 options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="SiteDetail"
+                component={SiteDetailScreen}
+                options={{ title: "Site" }}
               />
             </Stack.Navigator>
           </NavigationContainer>
