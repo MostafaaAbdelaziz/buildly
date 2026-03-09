@@ -2,6 +2,8 @@ import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from "react-native";
 import Screen from "../components/Screen";
 import WeatherRiskWidget from "../components/WeatherRiskWidget";
+import { colors } from "../constants/theme";
+import NeobrutalIconButton from "../components/NeobrutalIconButton";
 
 // Demo data (replace with Firebase later)
 const MOCK_PROJECTS = [
@@ -68,6 +70,9 @@ export default function PMDashboard({ navigation }) {
           title="Assigned Projects"
           collapsed={projectsCollapsed}
           onToggle={() => setProjectsCollapsed((v) => !v)}
+          onAddPress={() => {
+            // TODO: wire up to "create project" flow when available
+          }}
         />
 
         {!projectsCollapsed && (
@@ -100,12 +105,22 @@ export default function PMDashboard({ navigation }) {
 
 /* ---------- Small UI components ---------- */
 
-function SectionHeader({ title, collapsed, onToggle }) {
+function SectionHeader({ title, collapsed, onToggle, onAddPress }) {
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onToggle} style={styles.sectionHeader}>
-      <Text style={styles.sectionHeaderText}>{title}</Text>
-      <Text style={styles.sectionChevron}>{collapsed ? "⌄" : "⌃"}</Text>
-    </TouchableOpacity>
+    <View style={styles.sectionHeader}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onToggle}
+        style={styles.sectionHeaderLeft}
+      >
+        <Text style={styles.sectionHeaderText}>{title}</Text>
+        <Text style={styles.sectionChevron}>{collapsed ? "⌄" : "⌃"}</Text>
+      </TouchableOpacity>
+
+      {onAddPress && (
+        <NeobrutalIconButton onPress={onAddPress} style={styles.addProjectWrapper} />
+      )}
+    </View>
   );
 }
 
@@ -248,6 +263,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 1,
+  },
   sectionHeaderText: {
     fontSize: 24,
     fontWeight: "900",
@@ -256,6 +277,9 @@ const styles = StyleSheet.create({
   sectionChevron: {
     fontSize: 16,
     color: "#555",
+  },
+  addProjectWrapper: {
+    marginLeft: 12,
   },
   sectionBody: {
     marginHorizontal: 20,
