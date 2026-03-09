@@ -4,6 +4,7 @@ import Screen from "../components/Screen";
 import WeatherRiskWidget from "../components/WeatherRiskWidget";
 import { colors } from "../constants/theme";
 import NeobrutalIconButton from "../components/NeobrutalIconButton";
+import NeobrutalDialog from "../components/NeobrutalDialog";
 
 // Demo data (replace with Firebase later)
 const MOCK_PROJECTS = [
@@ -14,6 +15,8 @@ const MOCK_PROJECTS = [
 
 export default function PMDashboard({ navigation }) {
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
+  const [showNewSiteDialog, setShowNewSiteDialog] = useState(false);
+  const [newSiteName, setNewSiteName] = useState("");
 
   // Stable format: "Tue, March 3"
   const todayLabel = useMemo(() => {
@@ -71,7 +74,7 @@ export default function PMDashboard({ navigation }) {
           collapsed={projectsCollapsed}
           onToggle={() => setProjectsCollapsed((v) => !v)}
           onAddPress={() => {
-            // TODO: wire up to "create project" flow when available
+            setShowNewSiteDialog(true);
           }}
         />
 
@@ -99,6 +102,28 @@ export default function PMDashboard({ navigation }) {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <NeobrutalDialog
+        visible={showNewSiteDialog}
+        title="Add site"
+        description="Name the site so your team recognizes it on the dashboard."
+        value={newSiteName}
+        onChangeText={setNewSiteName}
+        onCancel={() => {
+          setShowNewSiteDialog(false);
+          setNewSiteName("");
+        }}
+        onOk={() => {
+          if (!newSiteName.trim()) {
+            setShowNewSiteDialog(false);
+            return;
+          }
+          const trimmed = newSiteName.trim();
+          setShowNewSiteDialog(false);
+          setNewSiteName("");
+          navigation.navigate("NewSite", { siteName: trimmed });
+        }}
+      />
     </Screen>
   );
 }
