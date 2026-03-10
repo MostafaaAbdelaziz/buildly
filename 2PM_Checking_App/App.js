@@ -19,6 +19,8 @@ import { AuthProvider } from "./context/AuthContext";
 import TrashScreen from "./screens/TrashScreen";
 import TwoPMCheckScreen from "./screens/TwoPMCheckScreen";
 import DrawingDetailScreen from "./screens/DrawingDetailScreen";
+import NewSiteScreen from "./screens/NewSiteScreen";
+import SiteDetailScreen from "./screens/SiteDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -42,6 +44,16 @@ export default function App() {
               <Stack.Screen name="ScheduleDetail" component={ScheduleDetailScreen} options={{ title: "Schedule Detail" }} />
               <Stack.Screen name="2PMCheck" component={TwoPMCheckScreen} options={{ title: "2PM Check" }} />
               <Stack.Screen name="DrawingDetail" component={DrawingDetailScreen} options={{ title: "Drawing Detail" }} />
+              <Stack.Screen
+                name="NewSite"
+                component={NewSiteScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="SiteDetail"
+                component={SiteDetailScreen}
+                options={{ title: "Site" }}
+              />
             </Stack.Navigator>
           </NavigationContainer>
         </ScheduleProvider>
