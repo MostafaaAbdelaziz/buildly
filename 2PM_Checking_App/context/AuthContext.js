@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { firebase_auth } from "../firebaseConfig/firebaseConfig";
 import { getUserRole } from "../services/userService";
+import { set } from "firebase/database";
 
 const AuthContext = createContext(null);
 
@@ -12,13 +13,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(firebase_auth, async (u) => {
-      setUser(u);
-
       if (!u) {
+        setUser(null);
         setRole(null);
         setLoading(false);
         return;
       }
+
+      await u?.reload();
+      setUser(firebase_auth.currentUser); // refresh with latest data
 
       try {
         const r = await getUserRole(u.uid);

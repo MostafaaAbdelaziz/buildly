@@ -1,18 +1,41 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image, Platform } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  Platform,
+} from "react-native";
 import { useIssues } from "../context/IssuesContext";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
+import { useAuth } from "../context/AuthContext";
 
-export default function CreateIssueScreen({ navigation }) {
+export default function CreateIssueScreen({ navigation, route }) {
   const { addIssue } = useIssues();
+  const { user } = useAuth();
+
 
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState(null);
+  const [location, setLocation] = useState(null); // { latitude, longitude }
 
+  useEffect(() => {
+    const picked = route?.params?.pickedLocation;
+    if (picked) {
+      setLocation(picked);
+
+      // clear so it doesn't keep reusing it
+      navigation.setParams({ pickedLocation: undefined });
+    }
+  }, [route?.params?.pickedLocation]);
+  
   async function pickImage() {
-    // On iOS/Android: request permission for gallery
     if (Platform.OS !== "web") {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
@@ -32,25 +55,78 @@ export default function CreateIssueScreen({ navigation }) {
     }
   }
 
-  function handleSave() {
-    if (!title.trim()) return;
-
-    addIssue({
-      title: title.trim(),
-      priority: priority.trim(),
-      description: description.trim(),
-      image: image || null,
+  function openMapPicker() {
+    navigation.navigate("Tabs", {
+      screen: "Map",
+      params: {
+        mode: "pick",
+        initialLocation: location,
+        returnTo: "CreateIssue",
+      },
     });
-
-    navigation.goBack();
   }
+
+  async function useCurrentLocation() {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      alert("Permission needed to access your location.");
+      return;
+    }
+
+    const loc = await Location.getCurrentPositionAsync();
+    setLocation({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+    });
+  }
+
+  function handleSave() {
+  if (!title.trim()) return;
+
+  if (!location) {
+    alert("Please pick a location on the map before saving.");
+    return;
+  }
+
+console.log("user.email", user?.email);
+console.log("user.displayName", user?.displayName);
+
+  addIssue({
+    title: title.trim(),
+    priority: priority.trim(), // Low/Medium/High
+    description: description.trim(),
+    image: image || null,
+    location, // ✅ required now
+    createdBy: user?.displayName || "Unknown",
+  });
+
+  navigation.goBack();
+}
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Create Issue</Text>
+ 
+      <Text style={styles.label}>Location</Text>
+      <TouchableOpacity style={styles.outlineBtn} onPress={openMapPicker}>
+      
+        <Text style={styles.outlineBtnText}>
+          {location
+            ? `Picked: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
+            : "Pick location on map"}
+        </Text>
+      </TouchableOpacity>
 
+      <TouchableOpacity style={[styles.currentLocationBtn, { marginTop: 10 }]} onPress={useCurrentLocation}>
+        <Text style={styles.currentLocationText}>Use current location</Text>
+      </TouchableOpacity>
       <Text style={styles.label}>Title</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Enter issue title" />
+      <TextInput
+        style={styles.input}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Enter issue title"
+      />
 
       <Text style={styles.label}>Description</Text>
       <TextInput
@@ -69,10 +145,14 @@ export default function CreateIssueScreen({ navigation }) {
             style={[styles.priorityBtn, priority === p && styles.priorityBtnActive]}
             onPress={() => setPriority(p)}
           >
-            <Text style={[styles.priorityText, priority === p && styles.priorityTextActive]}>{p}</Text>
+            <Text style={[styles.priorityText, priority === p && styles.priorityTextActive]}>
+              {p}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+     
 
       <TouchableOpacity style={[styles.btn, { marginTop: 16 }]} onPress={pickImage}>
         <Text style={styles.btnText}>{image ? "Change Photo" : "Attach Photo"}</Text>
@@ -116,8 +196,26 @@ const styles = StyleSheet.create({
   priorityText: { fontWeight: "700" },
   priorityTextActive: { color: "white" },
 
+  outlineBtn: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "white",
+  },
+  outlineBtnText: { fontWeight: "800", textAlign: "center" },
+
   btn: { marginTop: 18, backgroundColor: "black", padding: 14, borderRadius: 12 },
   btnText: { color: "white", fontWeight: "800", textAlign: "center" },
 
   preview: { width: "100%", height: 220, marginTop: 10, borderRadius: 12 },
+
+  currentLocationBtn: {
+    backgroundColor: "#f5f5f5",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  currentLocationText: { fontWeight: "700", textAlign: "center" },
 });

@@ -13,3 +13,34 @@ export const typography = {
   body: { fontSize: 16, fontWeight: "400" },
   caption: { fontSize: 13, fontWeight: "400" },
 };
+
+// Button-specific palette tuned to the 2 p.m. check-in visuals.
+export const buttonColors = {
+  // Strong, saturated actions (READY / NOT READY, primary CTAs)
+  primaryPositive: {
+    background: "#16a34a",
+    border: "#15803d",
+  },
+  primaryNegative: {
+    background: colors.accent,
+    border: "#b91c1c",
+  },
+
+  // Low-emphasis / tertiary versions (less saturated, smaller text)
+  tertiaryPositive: {
+    background: "#bbf7d0",
+    border: "#16a34a",
+  },
+  tertiaryNegative: {
+    background: "#fecaca",
+    border: colors.accent,
+  },
+
+  // Neutral secondary button (e.g. confirm with photo)
+  secondary: {
+    background: colors.neutral,
+    border: colors.neutralBorder,
+  },
+
+  shadow: "#111827",
+};

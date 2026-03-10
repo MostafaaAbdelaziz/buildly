@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { get, ref } from "firebase/database";
 import { firebase_auth, firebase_db } from "../firebaseConfig/firebaseConfig";
+import ThemedTextInput from "../components/ThemedTextInput";
+import Button from "../components/Button";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -34,8 +36,7 @@ export default function LoginScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.header}>Welcome</Text>
 
-      <TextInput
-        style={styles.input}
+      <ThemedTextInput
         placeholder="Email"
         keyboardType="email-address"
         autoCapitalize="none"
@@ -43,8 +44,7 @@ export default function LoginScreen({ navigation }) {
         onChangeText={setEmail}
       />
 
-      <TextInput
-        style={styles.input}
+      <ThemedTextInput
         placeholder="Password"
         secureTextEntry
         value={password}
@@ -57,6 +57,7 @@ export default function LoginScreen({ navigation }) {
 
       <View style={styles.buttonContainer}>
         <Button
+          variant="tertiary"
           title="Don't have an account? Sign Up"
           onPress={() => navigation.navigate("Register")}
         />
@@ -68,6 +69,5 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 16, backgroundColor: "#f2f2f2" },
   header: { fontSize: 24, marginBottom: 24, textAlign: "center" },
-  input: { height: 40, borderColor: "#ccc", borderWidth: 1, marginBottom: 12, paddingHorizontal: 8, borderRadius: 4, backgroundColor: "white" },
   buttonContainer: { padding: 10 },
 });
