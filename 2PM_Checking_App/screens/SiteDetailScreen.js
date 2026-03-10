@@ -1,16 +1,35 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import StatusCircle from "../components/StatusCircle";
+import NeobrutalIconButton from "../components/NeobrutalIconButton";
 import { useRoute } from "@react-navigation/native";
 import { useSiteDetail } from "../hooks/useSiteDetail";
+import { useUserEmail } from "../hooks/useUserEmail";
 
-export default function SiteDetailScreen() {
+const DEV_HAS_SCHEDULES = true;
+
+const MOCK_STATUS = "On Track";
+const MOCK_DAYS = 42;
+const MOCK_TASK = "Level 1 Drive All";
+const MOCK_FOREMAN = "Mr. Bob";
+
+export default function SiteDetailScreen({ navigation }) {
   const route = useRoute();
   const { siteId } = route.params || {};
   const { site, loading, error } = useSiteDetail(siteId);
+  const { email: pmEmail, loading: pmLoading } = useUserEmail(site?.projectManagerId);
 
   const address = site?.address || {};
+
+  useEffect(() => {
+    if (site?.name) {
+      navigation.setOptions({ title: site.name });
+    }
+  }, [site?.name, navigation]);
 
   return (
     <Screen>
@@ -47,7 +66,7 @@ export default function SiteDetailScreen() {
               ) : null}
             </View>
 
-            <View style={styles.infoCard}>
+            <Card style={styles.infoCard}>
               <AppText variant="body" bold style={styles.sectionLabel}>
                 Basics
               </AppText>
@@ -55,34 +74,14 @@ export default function SiteDetailScreen() {
                 Project manager
               </AppText>
               <AppText variant="body" style={styles.fieldValue}>
-                {site.projectManagerId || "Unknown"}
+                {pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
               </AppText>
 
-              <AppText variant="caption" style={styles.fieldLabel}>
-                Status
-              </AppText>
-              <AppText variant="body" style={styles.fieldValue}>
-                {site.status || "ACTIVE"}
-              </AppText>
-
-              {site.startDate ? (
-                <>
-                  <AppText variant="caption" style={styles.fieldLabel}>
-                    Start date
-                  </AppText>
-                  <AppText variant="body" style={styles.fieldValue}>
-                    {String(site.startDate.toDate ? site.startDate.toDate() : site.startDate)}
-                  </AppText>
-                </>
-              ) : null}
-            </View>
-
-            <View style={styles.infoCard}>
-              <AppText variant="body" bold style={styles.sectionLabel}>
-                Address
-              </AppText>
               {address.line1 || address.line2 || address.cityState ? (
                 <>
+                  <AppText variant="caption" style={styles.fieldLabel}>
+                    Address
+                  </AppText>
                   {address.line1 ? (
                     <AppText variant="body" style={styles.fieldValue}>
                       {address.line1}
@@ -99,12 +98,70 @@ export default function SiteDetailScreen() {
                     </AppText>
                   ) : null}
                 </>
-              ) : (
-                <AppText variant="caption" style={styles.muted}>
-                  No address on file yet.
+              ) : null}
+            </Card>
+
+            {!DEV_HAS_SCHEDULES ? (
+              <Card style={styles.skeletonCard}>
+                <NeobrutalIconButton
+                  onPress={() => {
+                    navigation.navigate("Schedule");
+                  }}
+                  style={styles.skeletonButton}
+                />
+                <AppText variant="caption" style={styles.skeletonLabel}>
+                  Add Schedules
                 </AppText>
-              )}
-            </View>
+              </Card>
+            ) : (
+              <>
+                <View style={styles.circlesRow}>
+                  <StatusCircle label={MOCK_STATUS} caption="status" />
+                  <StatusCircle label={`${MOCK_DAYS} days`} caption="to completion" />
+                </View>
+
+                <View style={styles.cardsRow}>
+                  <Card style={styles.infoCardHalf}>
+                    <AppText variant="caption" style={styles.cardCaption}>
+                      Current task
+                    </AppText>
+                    <AppText variant="body" bold>
+                      {MOCK_TASK}
+                    </AppText>
+                  </Card>
+                  <Card style={styles.infoCardHalf}>
+                    <AppText variant="caption" style={styles.cardCaption}>
+                      Foreman
+                    </AppText>
+                    <AppText variant="body" bold>
+                      {MOCK_FOREMAN}
+                    </AppText>
+                  </Card>
+                </View>
+
+                <Card style={styles.summaryCard}>
+                  <AppText variant="body" bold style={styles.summaryHeading}>
+                    Summary
+                  </AppText>
+                  <AppText variant="body" style={styles.summaryPlaceholder}>
+                    —
+                  </AppText>
+                </Card>
+
+                <Button
+                  variant="primary"
+                  title="Open Blueprint"
+                  onPress={() => navigation.navigate("Drawings")}
+                  fullWidth
+                />
+                <Button
+                  variant="secondary"
+                  title="Open Schedule"
+                  onPress={() => navigation.navigate("Schedule")}
+                  fullWidth
+                />
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -139,12 +196,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   infoCard: {
-    marginTop: 12,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#EEE",
+    marginBottom: 12,
   },
   sectionLabel: {
     marginBottom: 8,
@@ -156,11 +208,48 @@ const styles = StyleSheet.create({
   fieldValue: {
     fontWeight: "700",
   },
-  muted: {
-    opacity: 0.6,
+  skeletonCard: {
+    marginTop: 12,
+    marginBottom: 12,
+    borderStyle: "dashed",
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  skeletonButton: {
+    marginBottom: 8,
+  },
+  skeletonLabel: {
+    opacity: 0.7,
+  },
+  circlesRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 16,
+    gap: 16,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  infoCardHalf: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  cardCaption: {
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  summaryCard: {
+    marginBottom: 12,
+  },
+  summaryHeading: {
+    marginBottom: 8,
+  },
+  summaryPlaceholder: {
+    opacity: 0.5,
   },
   errorText: {
     color: "#B00020",
   },
 });
-
