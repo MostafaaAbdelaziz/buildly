@@ -1,15 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from "react-native";
 import Screen from "../components/Screen";
-
-// Demo data (replace with Firebase later)
-const MOCK_PROJECTS = [
-  { id: "p1", name: "Project CE4 5297 Red Street", status: "On Track" },
-  { id: "p2", name: "Project CE4 5297 Red Street", status: "Delayed" },
-  { id: "p3", name: "Project CE4 5297 Red Street", status: "Needs Attention" },
-];
+import { useAuth } from "../context/AuthContext";
+import { useSites } from "../hooks/useSites";
 
 export default function ForemanDashboard({ navigation }) {
+  const { user } = useAuth();
+  const { sites, loading: sitesLoading } = useSites(user?.uid);
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
 
   // Stable format: "Tue, March 3"
@@ -59,25 +56,31 @@ export default function ForemanDashboard({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        {/* Assigned Projects */}
+        {/* Sites */}
         <SectionHeader
-          title="Assigned Projects"
+          title="Sites"
           collapsed={projectsCollapsed}
           onToggle={() => setProjectsCollapsed((v) => !v)}
         />
 
         {!projectsCollapsed && (
           <View style={styles.sectionBody}>
-            {MOCK_PROJECTS.map((p) => (
-              <ProjectCard
-                key={p.id}
-                name={p.name}
-                status={p.status}
-                onViewProject={() => navigation?.navigate?.("Map")}
-                onViewSchedule={() => navigation?.navigate?.("Schedule")}
-                onInfo={() => {}}
-              />
-            ))}
+            {sitesLoading ? (
+              <Text style={styles.loadingText}>Loading sites...</Text>
+            ) : sites.length === 0 ? (
+              <Text style={styles.emptyText}>No sites assigned yet.</Text>
+            ) : (
+              sites.map((site) => (
+                <ProjectCard
+                  key={site.id}
+                  name={site.name}
+                  status={site.status || "ACTIVE"}
+                  onViewProject={() => navigation?.navigate?.("SiteDetail", { siteId: site.id })}
+                  onViewSchedule={() => navigation?.navigate?.("Schedule", { siteId: site.id })}
+                  onInfo={() => {}}
+                />
+              ))
+            )}
           </View>
         )}
 
@@ -331,4 +334,17 @@ const styles = StyleSheet.create({
   },
   issuesIcon: { fontSize: 18 },
   issuesText: { flex: 1, fontSize: 20, fontWeight: "900", color: "#111" },
+
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
 });

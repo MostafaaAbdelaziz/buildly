@@ -1,8 +1,6 @@
 # Bob App - Firestore Schema
 
-**Last Updated:** March 12, 2026
-
-This document describes the Firestore collections and their structure for the Bob construction management app.
+This document describes the Firestore collections and their structure for the Bob app.
 
 ---
 

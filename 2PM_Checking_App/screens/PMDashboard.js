@@ -5,15 +5,12 @@ import WeatherRiskWidget from "../components/WeatherRiskWidget";
 import { colors } from "../constants/theme";
 import NeobrutalIconButton from "../components/NeobrutalIconButton";
 import NeobrutalDialog from "../components/NeobrutalDialog";
-
-// Demo data (replace with Firebase later)
-const MOCK_PROJECTS = [
-  { id: "p1", name: "Project CE4 5297 Red Street", status: "On Track" },
-  { id: "p2", name: "Project CE4 5297 Red Street", status: "Delayed" },
-  { id: "p3", name: "Project CE4 5297 Red Street", status: "Needs Attention" },
-];
+import { useAuth } from "../context/AuthContext";
+import { useSites } from "../hooks/useSites";
 
 export default function PMDashboard({ navigation }) {
+  const { user } = useAuth();
+  const { sites, loading: sitesLoading } = useSites(user?.uid);
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showNewSiteDialog, setShowNewSiteDialog] = useState(false);
   const [newSiteName, setNewSiteName] = useState("");
@@ -68,9 +65,9 @@ export default function PMDashboard({ navigation }) {
         {/* Weather Risk Widget */}
         <WeatherRiskWidget />
 
-        {/* Assigned Projects */}
+        {/* Sites */}
         <SectionHeader
-          title="Assigned Projects"
+          title="Sites"
           collapsed={projectsCollapsed}
           onToggle={() => setProjectsCollapsed((v) => !v)}
           onAddPress={() => {
@@ -80,16 +77,22 @@ export default function PMDashboard({ navigation }) {
 
         {!projectsCollapsed && (
           <View style={styles.sectionBody}>
-            {MOCK_PROJECTS.map((p) => (
-              <ProjectCard
-                key={p.id}
-                name={p.name}
-                status={p.status}
-                onViewProject={() => navigation?.navigate?.("Map")}
-                onViewSchedule={() => navigation?.navigate?.("Schedule")}
-                onInfo={() => {}}
-              />
-            ))}
+            {sitesLoading ? (
+              <Text style={styles.loadingText}>Loading sites...</Text>
+            ) : sites.length === 0 ? (
+              <Text style={styles.emptyText}>No sites yet. Tap + to add one.</Text>
+            ) : (
+              sites.map((site) => (
+                <ProjectCard
+                  key={site.id}
+                  name={site.name}
+                  status={site.status || "ACTIVE"}
+                  onViewProject={() => navigation?.navigate?.("SiteDetail", { siteId: site.id })}
+                  onViewSchedule={() => navigation?.navigate?.("Schedule", { siteId: site.id })}
+                  onInfo={() => {}}
+                />
+              ))
+            )}
           </View>
         )}
 
@@ -391,4 +394,17 @@ const styles = StyleSheet.create({
   },
   issuesIcon: { fontSize: 18 },
   issuesText: { flex: 1, fontSize: 20, fontWeight: "900", color: "#111" },
+
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
 });
