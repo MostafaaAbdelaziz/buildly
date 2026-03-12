@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { View, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
@@ -24,12 +24,6 @@ export default function SiteDetailScreen({ navigation }) {
   const { email: pmEmail, loading: pmLoading } = useUserEmail(site?.projectManagerId);
 
   const address = site?.address || {};
-
-  useEffect(() => {
-    if (site?.name) {
-      navigation.setOptions({ title: site.name });
-    }
-  }, [site?.name, navigation]);
 
   return (
     <Screen>
