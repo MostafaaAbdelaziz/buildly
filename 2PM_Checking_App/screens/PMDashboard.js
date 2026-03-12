@@ -7,6 +7,8 @@ import NeobrutalIconButton from "../components/NeobrutalIconButton";
 import NeobrutalDialog from "../components/NeobrutalDialog";
 import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
+import Card from "../components/Card";
+import AppText from "../components/AppText";
 
 export default function PMDashboard({ navigation }) {
   const { user } = useAuth();
@@ -78,19 +80,39 @@ export default function PMDashboard({ navigation }) {
         {!projectsCollapsed && (
           <View style={styles.sectionBody}>
             {sitesLoading ? (
-              <Text style={styles.loadingText}>Loading sites...</Text>
+              <AppText variant="body" style={styles.loadingText}>Loading sites...</AppText>
             ) : sites.length === 0 ? (
-              <Text style={styles.emptyText}>No sites yet. Tap + to add one.</Text>
+              <AppText variant="body" style={styles.emptyText}>No sites yet. Tap + to add one.</AppText>
             ) : (
               sites.map((site) => (
-                <ProjectCard
+                <TouchableOpacity
                   key={site.id}
-                  name={site.name}
-                  status={site.status || "ACTIVE"}
-                  onViewProject={() => navigation?.navigate?.("SiteDetail", { siteId: site.id })}
-                  onViewSchedule={() => navigation?.navigate?.("Schedule", { siteId: site.id })}
-                  onInfo={() => {}}
-                />
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate("SiteDetail", { siteId: site.id })}
+                >
+                  <Card>
+                    <View style={styles.siteCardHeader}>
+                      <AppText variant="title" bold style={styles.siteName} numberOfLines={1}>
+                        {site.name}
+                      </AppText>
+                      <View style={[styles.statusBadge, site.status === "ACTIVE" && styles.statusBadgeActive]}>
+                        <AppText variant="caption" bold style={styles.statusBadgeText}>
+                          {site.status || "ACTIVE"}
+                        </AppText>
+                      </View>
+                    </View>
+                    {site.description && (
+                      <AppText variant="body" style={styles.siteDescription} numberOfLines={2}>
+                        {site.description}
+                      </AppText>
+                    )}
+                    {site.address && (
+                      <AppText variant="caption" style={styles.siteAddress} numberOfLines={1}>
+                        {[site.address.line1, site.address.cityState].filter(Boolean).join(", ")}
+                      </AppText>
+                    )}
+                  </Card>
+                </TouchableOpacity>
               ))
             )}
           </View>
@@ -149,52 +171,6 @@ function SectionHeader({ title, collapsed, onToggle, onAddPress }) {
         <NeobrutalIconButton onPress={onAddPress} style={styles.addProjectWrapper} />
       )}
     </View>
-  );
-}
-
-function ProjectCard({ name, status, onViewProject, onViewSchedule, onInfo }) {
-  return (
-    <View style={styles.projectCard}>
-      <View style={styles.projectTopRow}>
-        <Text style={styles.projectName} numberOfLines={1}>
-          {name}
-        </Text>
-        <StatusPill status={status} />
-      </View>
-
-      <View style={styles.projectDivider} />
-
-      <View style={styles.projectButtonsRow}>
-        <ActionButton icon="📁" label="View Project" onPress={onViewProject} />
-        <ActionButton icon="📅" label="View Schedule" onPress={onViewSchedule} />
-        <IconButton icon="ⓘ" onPress={onInfo} />
-      </View>
-    </View>
-  );
-}
-
-function StatusPill({ status }) {
-  return (
-    <View style={styles.statusPill}>
-      <Text style={styles.statusPillText}>{status}</Text>
-    </View>
-  );
-}
-
-function ActionButton({ icon, label, onPress }) {
-  return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.actionBtn}>
-      <Text style={styles.actionIcon}>{icon}</Text>
-      <Text style={styles.actionText}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function IconButton({ icon, onPress }) {
-  return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.iconBtn}>
-      <Text style={styles.iconBtnText}>{icon}</Text>
-    </TouchableOpacity>
   );
 }
 
@@ -315,68 +291,40 @@ const styles = StyleSheet.create({
     gap: 14,
   },
 
-  projectCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#EEE",
-  },
-  projectTopRow: {
+  siteCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    marginBottom: 8,
   },
-  projectName: {
+  siteName: {
     flex: 1,
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#111",
+    marginRight: 12,
   },
-  statusPill: {
-    backgroundColor: "#EFEFEF",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: colors.neutral,
+    borderWidth: 1.5,
+    borderColor: colors.neutralBorder,
   },
-  statusPillText: {
-    fontWeight: "900",
-    color: "#555",
+  statusBadgeActive: {
+    backgroundColor: "#bbf7d0",
+    borderColor: "#16a34a",
   },
-  projectDivider: {
-    height: 1,
-    backgroundColor: "#EEE",
-    marginVertical: 14,
+  statusBadgeText: {
+    color: colors.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  projectButtonsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  siteDescription: {
+    marginBottom: 6,
+    color: colors.textSecondary,
   },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: "#ECECEC",
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  siteAddress: {
+    color: colors.textSecondary,
   },
-  actionIcon: { fontSize: 16 },
-  actionText: { fontWeight: "900", color: "#222" },
-
-  iconBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#ECECEC",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconBtnText: { fontSize: 18, fontWeight: "900", color: "#222" },
 
   issuesRow: {
     marginTop: 18,
