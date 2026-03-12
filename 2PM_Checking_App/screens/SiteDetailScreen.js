@@ -99,7 +99,10 @@ export default function SiteDetailScreen({ navigation }) {
               <Card style={styles.skeletonCard}>
                 <NeobrutalIconButton
                   onPress={() => {
-                    navigation.navigate("Schedule");
+                    navigation.navigate("SiteSchedules", {
+                      siteId,
+                      siteName: site.name,
+                    });
                   }}
                   style={styles.skeletonButton}
                 />
@@ -151,7 +154,12 @@ export default function SiteDetailScreen({ navigation }) {
                 <Button
                   variant="secondary"
                   title="Open Schedule"
-                  onPress={() => navigation.navigate("Schedule")}
+                  onPress={() =>
+                    navigation.navigate("SiteSchedules", {
+                      siteId,
+                      siteName: site.name,
+                    })
+                  }
                   fullWidth
                 />
               </>

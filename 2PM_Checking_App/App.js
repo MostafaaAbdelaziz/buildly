@@ -12,6 +12,7 @@ import RegisterScreen from "./screens/RegisterScreen";
 
 import CreateScheduleScreen from "./screens/CreateScheduleScreen";
 import ScheduleDetailScreen from "./screens/ScheduleDetailScreen";
+import SiteSchedulesScreen from "./screens/SiteSchedulesScreen";
 
 import { IssuesProvider } from "./context/IssuesContext";
 import { ScheduleProvider } from "./context/ScheduleContext";
@@ -40,6 +41,7 @@ export default function App() {
 
               <Stack.Screen name="CreateSchedule" component={CreateScheduleScreen} options={{ title: "Create Schedule" }} />
               <Stack.Screen name="ScheduleDetail" component={ScheduleDetailScreen} options={{ title: "Schedule Detail" }} />
+              <Stack.Screen name="SiteSchedules" component={SiteSchedulesScreen} options={{ title: "Schedules" }} />
               <Stack.Screen name="2PMCheck" component={TwoPMCheckScreen} options={{ title: "2PM Check" }} />
               <Stack.Screen name="DrawingDetail" component={DrawingDetailScreen} options={{ title: "Drawing Detail" }} />
             </Stack.Navigator>
