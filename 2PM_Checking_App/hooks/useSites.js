@@ -27,6 +27,7 @@ export function useSites(userId) {
       (snap) => {
         const docs = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((site) => site.deleted !== true)
           .sort((a, b) => {
             const ta = a.createdAt?.seconds ?? 0;
             const tb = b.createdAt?.seconds ?? 0;

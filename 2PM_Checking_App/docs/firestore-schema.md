@@ -19,6 +19,8 @@ Represents construction sites managed by the app.
   - `cityState` (string) - City and state
 - `projectManagerId` (string, required) - Firebase Auth UID of the project manager
 - `status` (string, optional) - Site status (e.g., "ACTIVE", "COMPLETED")
+- `deleted` (boolean, optional) - Soft delete flag (true = deleted, sites with deleted=true are hidden)
+- `deletedAt` (timestamp, optional) - When the site was soft-deleted
 - `createdAt` (timestamp) - Creation timestamp
 - `updatedAt` (timestamp) - Last update timestamp
 
@@ -34,6 +36,7 @@ Represents construction sites managed by the app.
   },
   "projectManagerId": "abc123xyz",
   "status": "ACTIVE",
+  "deleted": false,
   "createdAt": "2026-03-12T10:00:00Z",
   "updatedAt": "2026-03-12T10:00:00Z"
 }
@@ -198,6 +201,70 @@ Subcollection under sites for construction drawings/blueprints.
 
 ---
 
+### 8. `site_members` (Site Memberships)
+
+Tracks which users have been invited to or are active members of a site. Created by managers when inviting crew members.
+
+**Fields:**
+- `siteId` (string, required) - Reference to the site document ID
+- `siteName` (string, required) - Denormalized site name for display
+- `userId` (string, required) - Firebase Auth UID of the invited user
+- `role` (string, required) - Role on this site: `"WORKER"`, `"FOREMAN"`, `"MANAGER"`
+- `invitedBy` (string, required) - Firebase Auth UID of the manager who sent the invite
+- `inviterName` (string, required) - Denormalized display name of inviter
+- `status` (string, required) - `"PENDING"` | `"ACTIVE"` | `"REJECTED"`
+- `addedAt` (timestamp) - When the invite was created
+- `resolvedAt` (timestamp, nullable) - When the invite was accepted or rejected
+
+**Example:**
+```json
+{
+  "siteId": "site123",
+  "siteName": "Harbor View Apartments",
+  "userId": "uid_crewmember",
+  "role": "WORKER",
+  "invitedBy": "uid_manager",
+  "inviterName": "Bob Johnson",
+  "status": "PENDING",
+  "addedAt": "2026-03-17T10:00:00Z",
+  "resolvedAt": null
+}
+```
+
+---
+
+### 9. `notifications` (In-App Notifications)
+
+In-app notifications for users. Currently used for site invitations. Listened to in real-time by the recipient's app.
+
+**Fields:**
+- `userId` (string, required) - Firebase Auth UID of the recipient
+- `type` (string, required) - Notification type: `"SITE_INVITE"`
+- `siteId` (string, required) - Reference to the relevant site
+- `siteName` (string, required) - Denormalized site name
+- `invitedBy` (string, required) - Firebase Auth UID of the inviter
+- `inviterName` (string, required) - Denormalized display name of inviter
+- `membershipId` (string, required) - Reference to the `site_members` document
+- `read` (boolean) - `false` until the user accepts or rejects the invite
+- `createdAt` (timestamp) - Creation timestamp
+
+**Example:**
+```json
+{
+  "userId": "uid_crewmember",
+  "type": "SITE_INVITE",
+  "siteId": "site123",
+  "siteName": "Harbor View Apartments",
+  "invitedBy": "uid_manager",
+  "inviterName": "Bob Johnson",
+  "membershipId": "member456",
+  "read": false,
+  "createdAt": "2026-03-17T10:00:00Z"
+}
+```
+
+---
+
 ## Data Relationships
 
 ```
@@ -214,6 +281,9 @@ Site (sites)
 
 Phase Template (phase_templates) - standalone, reusable across sites
  └── Template Tasks (embedded array) - title and description only
+
+Site Member (site_members) - links users to sites with a role + invite status
+Notification (notifications) - per-user inbox; SITE_INVITE type links to site_members
 ```
 
 ---
@@ -264,7 +334,7 @@ service cloud.firestore {
     match /sites/{siteId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn();
-      allow delete: if false;
+      allow delete: if false; // Hard delete disabled; use soft delete (update with deleted=true)
     }
 
     match /sites/{siteId}/folders/{folderId} {
@@ -302,6 +372,24 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() &&
         resource.data.createdById == request.auth.uid;
+    }
+
+    // Any signed-in user can create (manager inviting). Only the invitee can accept/reject.
+    match /site_members/{membershipId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() &&
+        resource.data.userId == request.auth.uid &&
+        resource.data.status == 'PENDING';
+      allow delete: if false;
+    }
+
+    // Only the recipient can read/mark-read their notifications. Any signed-in user can create.
+    match /notifications/{notifId} {
+      allow read, update: if isSignedIn() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
+      allow delete: if false;
     }
 
     match /{document=**} {

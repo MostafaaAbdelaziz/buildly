@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 
 function sitesCol() {
@@ -56,4 +56,16 @@ export function buildSitePayload({
 export async function createSite(docData) {
   const ref = await addDoc(sitesCol(), docData);
   return ref;
+}
+
+export async function softDeleteSite(siteId) {
+  if (!siteId) {
+    throw new Error("siteId is required");
+  }
+  const siteRef = doc(firebase_fs, "sites", siteId);
+  await updateDoc(siteRef, {
+    deleted: true,
+    deletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
 }

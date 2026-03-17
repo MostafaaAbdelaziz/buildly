@@ -1,14 +1,17 @@
-import React from "react";
-import { View, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, ActivityIndicator, ScrollView, Alert } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import StatusCircle from "../components/StatusCircle";
 import NeobrutalIconButton from "../components/NeobrutalIconButton";
+import SiteActionsMenu from "../components/SiteActionsMenu";
 import { useRoute } from "@react-navigation/native";
 import { useSiteDetail } from "../hooks/useSiteDetail";
 import { useUserEmail } from "../hooks/useUserEmail";
+import { useAuth } from "../context/AuthContext";
+import { softDeleteSite } from "../services/siteRepository";
 
 const DEV_HAS_SCHEDULES = true;
 
@@ -22,12 +25,47 @@ export default function SiteDetailScreen({ navigation }) {
   const { siteId } = route.params || {};
   const { site, loading, error } = useSiteDetail(siteId);
   const { email: pmEmail, loading: pmLoading } = useUserEmail(site?.projectManagerId);
+  const { role } = useAuth();
+  const isManager = role === "manager";
+
+  const [deleting, setDeleting] = useState(false);
 
   const address = site?.address || {};
 
+  const handleDeleteSite = () => {
+    Alert.alert(
+      "Delete Site",
+      `Are you sure you want to delete "${site.name}"? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await softDeleteSite(siteId);
+              Alert.alert("Success", "Site deleted successfully");
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert("Error", err.message || "Failed to delete site");
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         {!siteId ? (
           <AppText variant="body" style={styles.errorText}>
             Missing site id.
@@ -45,6 +83,14 @@ export default function SiteDetailScreen({ navigation }) {
         ) : (
           <>
             <View style={styles.headerBlock}>
+              {isManager && (
+                <SiteActionsMenu
+                  onInvite={() =>
+                    navigation.navigate("InviteMember", { siteId, siteName: site.name })
+                  }
+                  onDelete={handleDeleteSite}
+                />
+              )}
               <AppText variant="title" bold style={styles.title}>
                 {site.name}
               </AppText>
@@ -148,7 +194,7 @@ export default function SiteDetailScreen({ navigation }) {
                 <Button
                   variant="primary"
                   title="Open Blueprint"
-                  onPress={() => navigation.navigate("Drawings")}
+                  onPress={() => navigation.navigate("SiteDrawings", { siteId, siteName: site?.name })}
                   fullWidth
                 />
                 <Button

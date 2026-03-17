@@ -3,13 +3,19 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from "
 import Screen from "../components/Screen";
 import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
+import { useNotifications } from "../hooks/useNotifications";
+import { useSiteMembers } from "../hooks/useSiteMembers";
 import Card from "../components/Card";
 import AppText from "../components/AppText";
+import NotificationsDrawer from "../components/NotificationsDrawer";
 import { colors } from "../constants/theme";
 
 export default function ForemanDashboard({ navigation }) {
   const { user } = useAuth();
   const { sites, loading: sitesLoading } = useSites(user?.uid);
+  const { notifications } = useNotifications(user?.uid);
+  const { handleAccept, handleReject } = useSiteMembers({ uid: user?.uid, name: user?.email ?? "" });
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
 
   // Stable format: "Tue, March 3"
@@ -27,6 +33,18 @@ export default function ForemanDashboard({ navigation }) {
       padding={{ paddingHorizontal: 0, paddingVertical: 0 }}
       style={{ backgroundColor: "#F6F4EE" }}
     >
+      <NotificationsDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        notifications={notifications}
+        onAccept={async (notif) => {
+          await handleAccept(notif.membershipId, notif.id);
+        }}
+        onReject={async (notif) => {
+          await handleReject(notif.membershipId, notif.id);
+        }}
+      />
+
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -39,8 +57,19 @@ export default function ForemanDashboard({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.bellBtn}
+            activeOpacity={0.7}
+            onPress={() => setDrawerOpen(true)}
+          >
             <Text style={styles.bellIcon}>🔔</Text>
+            {notifications.length > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>
+                  {notifications.length > 9 ? "9+" : notifications.length}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         </View>
 
@@ -167,6 +196,25 @@ const styles = StyleSheet.create({
   },
   bellIcon: {
     fontSize: 20,
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#dc2626",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: "#F6F4EE",
+  },
+  bellBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "900",
   },
 
   statusRow: {

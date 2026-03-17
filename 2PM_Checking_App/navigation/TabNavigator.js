@@ -4,7 +4,6 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import DashboardStack from "./DashboardStack";
 import IssuesScreen from "../screens/IssuesScreen";
 import MapScreen from "../screens/MapScreen";
-import DrawingsScreen from "../screens/DrawingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import GanttChartScreen from "../screens/GanttChartScreen";
 
@@ -16,7 +15,6 @@ export default function TabsNavigator() {
       <Tab.Screen name="Dashboard" component={DashboardStack} />
       <Tab.Screen name="Issues" component={IssuesScreen} />
       <Tab.Screen name="Schedule" component={GanttChartScreen} />
-      <Tab.Screen name="Drawings" component={DrawingsScreen} />
       <Tab.Screen name="Map" component={MapScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>

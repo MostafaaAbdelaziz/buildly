@@ -1,0 +1,182 @@
+import React from "react";
+import {
+  View,
+  StyleSheet,
+  Modal,
+  ScrollView,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from "react-native";
+import AppText from "./AppText";
+import InviteNotificationCard from "./InviteNotificationCard";
+import { colors } from "../constants/theme";
+
+/**
+ * NotificationsDrawer
+ *
+ * A bottom-anchored modal sheet that lists all unread notifications.
+ * Currently renders SITE_INVITE notifications via InviteNotificationCard.
+ *
+ * Props:
+ *  - visible       boolean
+ *  - onClose       () => void
+ *  - notifications array of notification objects
+ *  - onAccept      (notification) => void
+ *  - onReject      (notification) => void
+ */
+export default function NotificationsDrawer({
+  visible,
+  onClose,
+  notifications = [],
+  onAccept,
+  onReject,
+}) {
+  const inviteNotifs = notifications.filter((n) => n.type === "SITE_INVITE");
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      {/* Tap backdrop to close */}
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.backdrop} />
+      </TouchableWithoutFeedback>
+
+      <View style={styles.sheet}>
+        {/* Handle bar */}
+        <View style={styles.handle} />
+
+        <View style={styles.header}>
+          <AppText variant="title" bold style={styles.title}>
+            Notifications
+          </AppText>
+          {notifications.length > 0 ? (
+            <View style={styles.badgeCount}>
+              <AppText variant="caption" bold style={styles.badgeCountText}>
+                {notifications.length}
+              </AppText>
+            </View>
+          ) : null}
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <AppText variant="body" bold style={styles.closeBtnText}>
+              ✕
+            </AppText>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {inviteNotifs.length === 0 ? (
+            <View style={styles.emptyState}>
+              <AppText variant="body" style={styles.emptyIcon}>🔔</AppText>
+              <AppText variant="body" style={styles.emptyText}>
+                No new notifications
+              </AppText>
+              <AppText variant="caption" style={styles.emptySubtext}>
+                Site invitations from your manager will appear here.
+              </AppText>
+            </View>
+          ) : (
+            inviteNotifs.map((notif) => (
+              <InviteNotificationCard
+                key={notif.id}
+                notification={notif}
+                onAccept={(n) => {
+                  onAccept(n);
+                }}
+                onReject={(n) => {
+                  onReject(n);
+                }}
+              />
+            ))
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  sheet: {
+    backgroundColor: "#F6F4EE",
+    borderTopWidth: 3,
+    borderTopColor: "#111",
+    borderLeftWidth: 3,
+    borderLeftColor: "#111",
+    borderRightWidth: 3,
+    borderRightColor: "#111",
+    paddingTop: 10,
+    paddingBottom: 36,
+    maxHeight: "75%",
+  },
+  handle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#ccc",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: "#e5e5e0",
+    gap: 8,
+  },
+  title: {
+    flex: 1,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  badgeCount: {
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    minWidth: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  badgeCountText: {
+    color: "#fff",
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: {
+    color: colors.textSecondary,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+    gap: 8,
+  },
+  emptyIcon: {
+    fontSize: 36,
+    marginBottom: 4,
+  },
+  emptyText: {
+    fontWeight: "700",
+    color: colors.text,
+  },
+  emptySubtext: {
+    color: colors.textSecondary,
+    textAlign: "center",
+    paddingHorizontal: 24,
+  },
+});
