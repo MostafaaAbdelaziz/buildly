@@ -12,6 +12,7 @@ import { useSiteDetail } from "../hooks/useSiteDetail";
 import { useUserEmail } from "../hooks/useUserEmail";
 import { useAuth } from "../context/AuthContext";
 import { softDeleteSite } from "../services/siteRepository";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 const DEV_HAS_SCHEDULES = true;
 
@@ -27,6 +28,7 @@ export default function SiteDetailScreen({ navigation }) {
   const { email: pmEmail, loading: pmLoading } = useUserEmail(site?.projectManagerId);
   const { role } = useAuth();
   const isManager = role === "manager";
+  const tabBarPadding = useTabBarPadding();
 
   const [deleting, setDeleting] = useState(false);
 
@@ -63,7 +65,7 @@ export default function SiteDetailScreen({ navigation }) {
   return (
     <Screen>
       <ScrollView 
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {!siteId ? (
@@ -219,7 +221,7 @@ export default function SiteDetailScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 32,
+    paddingBottom: 32, // Additional padding on top of tab bar padding
   },
   headerBlock: {
     marginBottom: 16,

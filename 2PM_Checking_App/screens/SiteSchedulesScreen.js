@@ -22,6 +22,7 @@ import { useSchedulePhases } from "../hooks/useSchedulePhases";
 import { usePhaseTasks } from "../hooks/usePhaseTasks";
 import { usePhaseTemplates } from "../hooks/usePhaseTemplates";
 import { useAuth } from "../context/AuthContext";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -907,6 +908,7 @@ export default function SiteSchedulesScreen() {
   const { siteId, siteName } = route.params || {};
   const { role } = useAuth();
   const isManager = role === "manager";
+  const tabBarPadding = useTabBarPadding();
 
   const [addingSchedule, setAddingSchedule] = useState(false);
   const [newScheduleName, setNewScheduleName] = useState("");
@@ -931,7 +933,7 @@ export default function SiteSchedulesScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[s.container, { paddingBottom: tabBarPadding }]} keyboardShouldPersistTaps="handled">
         <AppText variant="title" bold style={s.screenTitle}>{siteName || "Site"}</AppText>
         <AppText variant="caption" style={s.screenSubtitle}>SCHEDULES</AppText>
 

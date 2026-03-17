@@ -15,6 +15,7 @@ export const typography = {
 };
 
 // Button-specific palette tuned to the 2 p.m. check-in visuals.
+// Button-specific palette tuned to the 2 p.m. check-in visuals.
 export const buttonColors = {
   // Strong, saturated actions (READY / NOT READY, primary CTAs)
   primaryPositive: {
@@ -43,4 +44,8 @@ export const buttonColors = {
   },
 
   shadow: "#111827",
+};
+
+export const layout = {
+  floatingTabBarHeight: 72, // Icon height (48px) + padding (24px)
 };

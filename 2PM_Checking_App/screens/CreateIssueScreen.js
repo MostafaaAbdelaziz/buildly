@@ -18,10 +18,12 @@ import AppText from "../components/AppText";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import { colors } from "../constants/theme";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function CreateIssueScreen({ navigation, route }) {
   const { addIssue } = useIssues();
   const { user } = useAuth();
+  const tabBarPadding = useTabBarPadding();
 
 
   const [title, setTitle] = useState("");
@@ -159,7 +161,7 @@ export default function CreateIssueScreen({ navigation, route }) {
   return (
     <Screen>
       <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <AppText variant="title" bold>Create Issue</AppText>

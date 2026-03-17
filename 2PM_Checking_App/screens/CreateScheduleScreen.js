@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useSchedule } from "../context/ScheduleContext";
 import { useAuth } from "../context/AuthContext";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function CreateScheduleScreen({ navigation }) {
   const { addItem } = useSchedule();
   const { role } = useAuth();
   const isManager = role === "manager";
+  const tabBarPadding = useTabBarPadding();
 
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");           // YYYY-MM-DD
@@ -60,7 +62,7 @@ export default function CreateScheduleScreen({ navigation }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: tabBarPadding }]}>
       <Text style={styles.title}>Create Schedule</Text>
 
       <Text style={styles.label}>Title</Text>

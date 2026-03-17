@@ -9,6 +9,7 @@ import Card from "../components/Card";
 import AppText from "../components/AppText";
 import NotificationsDrawer from "../components/NotificationsDrawer";
 import { colors } from "../constants/theme";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function ForemanDashboard({ navigation }) {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function ForemanDashboard({ navigation }) {
   const { handleAccept, handleReject } = useSiteMembers({ uid: user?.uid, name: user?.email ?? "" });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
+  const tabBarPadding = useTabBarPadding();
 
   // Stable format: "Tue, March 3"
   const todayLabel = useMemo(() => {
@@ -45,7 +47,7 @@ export default function ForemanDashboard({ navigation }) {
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -155,7 +157,7 @@ function SectionHeader({ title, collapsed, onToggle }) {
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: 28,
+    paddingBottom: 28, // Additional padding on top of tab bar padding
   },
 
   header: {

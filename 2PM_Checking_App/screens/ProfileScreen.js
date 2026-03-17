@@ -8,9 +8,11 @@ import AppText from "../components/AppText";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import { colors } from "../constants/theme";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function ProfileScreen({ navigation }) {
   const { user, role } = useAuth();
+  const tabBarPadding = useTabBarPadding();
 
   const handleLogout = async () => {
     Alert.alert(
@@ -51,7 +53,7 @@ export default function ProfileScreen({ navigation }) {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <AppText variant="title" bold style={styles.title}>
@@ -157,7 +159,7 @@ export default function ProfileScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingBottom: 28,
+    paddingBottom: 28, // Additional padding on top of tab bar padding
   },
 
   title: {

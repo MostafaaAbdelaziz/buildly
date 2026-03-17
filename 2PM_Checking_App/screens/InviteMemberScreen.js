@@ -9,6 +9,7 @@ import { useRoute } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useSiteMembers } from "../hooks/useSiteMembers";
 import { ROLES } from "../constants/roles";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 const ROLE_LABELS = {
   [ROLES.MANAGER]: "Manager",
@@ -22,6 +23,7 @@ export default function InviteMemberScreen({ navigation }) {
   const route = useRoute();
   const { siteId, siteName } = route.params || {};
   const { user } = useAuth();
+  const tabBarPadding = useTabBarPadding();
 
   const { inviteByEmail, loading: inviting, error: inviteError } = useSiteMembers({
     uid: user?.uid ?? "",
@@ -54,7 +56,7 @@ export default function InviteMemberScreen({ navigation }) {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

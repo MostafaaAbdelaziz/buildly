@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
 import Card from "../components/Card";
 import AppText from "../components/AppText";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function PMDashboard({ navigation }) {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export default function PMDashboard({ navigation }) {
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showNewSiteDialog, setShowNewSiteDialog] = useState(false);
   const [newSiteName, setNewSiteName] = useState("");
+  const tabBarPadding = useTabBarPadding();
 
   // Stable format: "Tue, March 3"
   const todayLabel = useMemo(() => {
@@ -32,7 +34,7 @@ export default function PMDashboard({ navigation }) {
       padding={{ paddingHorizontal: 0, paddingVertical: 0 }}
       style={{ backgroundColor: "#F6F4EE" }}
     >
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -176,7 +178,7 @@ function SectionHeader({ title, collapsed, onToggle, onAddPress }) {
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: 28,
+    paddingBottom: 28, // Additional padding on top of tab bar padding
   },
 
   header: {
