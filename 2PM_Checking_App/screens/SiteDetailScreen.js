@@ -7,11 +7,13 @@ import Card from "../components/Card";
 import StatusCircle from "../components/StatusCircle";
 import NeobrutalIconButton from "../components/NeobrutalIconButton";
 import SiteActionsMenu from "../components/SiteActionsMenu";
+import NeobrutalInfoCard, { InfoField, InfoSection } from "../components/NeobrutalInfoCard";
 import { useRoute } from "@react-navigation/native";
 import { useSiteDetail } from "../hooks/useSiteDetail";
 import { useUserEmail } from "../hooks/useUserEmail";
 import { useAuth } from "../context/AuthContext";
 import { softDeleteSite } from "../services/siteRepository";
+import { colors } from "../constants/theme";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 const DEV_HAS_SCHEDULES = true;
@@ -108,40 +110,81 @@ export default function SiteDetailScreen({ navigation }) {
               ) : null}
             </View>
 
-            <Card style={styles.infoCard}>
-              <AppText variant="body" bold style={styles.sectionLabel}>
-                Basics
-              </AppText>
-              <AppText variant="caption" style={styles.fieldLabel}>
-                Project manager
-              </AppText>
-              <AppText variant="body" style={styles.fieldValue}>
-                {pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
-              </AppText>
+            {/* VARIATION 1: STACKED - Classic Neobrutal */}
+            <AppText variant="caption" style={styles.variantLabel}>
+              VARIATION 1: STACKED
+            </AppText>
+            <NeobrutalInfoCard variant="stacked">
+              <InfoSection title="Basics">
+                <InfoField 
+                  label="Project Manager" 
+                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
+                />
+                {(address.line1 || address.line2 || address.cityState) && (
+                  <InfoField 
+                    label="Address" 
+                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
+                  />
+                )}
+              </InfoSection>
+            </NeobrutalInfoCard>
 
-              {address.line1 || address.line2 || address.cityState ? (
-                <>
-                  <AppText variant="caption" style={styles.fieldLabel}>
-                    Address
-                  </AppText>
-                  {address.line1 ? (
-                    <AppText variant="body" style={styles.fieldValue}>
-                      {address.line1}
-                    </AppText>
-                  ) : null}
-                  {address.line2 ? (
-                    <AppText variant="body" style={styles.fieldValue}>
-                      {address.line2}
-                    </AppText>
-                  ) : null}
-                  {address.cityState ? (
-                    <AppText variant="body" style={styles.fieldValue}>
-                      {address.cityState}
-                    </AppText>
-                  ) : null}
-                </>
-              ) : null}
-            </Card>
+            {/* VARIATION 2: SPLIT - Two-tone with accent strip */}
+            <AppText variant="caption" style={styles.variantLabel}>
+              VARIATION 2: SPLIT
+            </AppText>
+            <NeobrutalInfoCard variant="split" accentColor={colors.primary}>
+              <InfoSection title="Basics">
+                <InfoField 
+                  label="Project Manager" 
+                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
+                />
+                {(address.line1 || address.line2 || address.cityState) && (
+                  <InfoField 
+                    label="Address" 
+                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
+                  />
+                )}
+              </InfoSection>
+            </NeobrutalInfoCard>
+
+            {/* VARIATION 3: BADGE - Compact with colored border */}
+            <AppText variant="caption" style={styles.variantLabel}>
+              VARIATION 3: BADGE
+            </AppText>
+            <NeobrutalInfoCard variant="badge" accentColor={colors.accent}>
+              <InfoSection title="Basics">
+                <InfoField 
+                  label="Project Manager" 
+                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
+                />
+                {(address.line1 || address.line2 || address.cityState) && (
+                  <InfoField 
+                    label="Address" 
+                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
+                  />
+                )}
+              </InfoSection>
+            </NeobrutalInfoCard>
+
+            {/* VARIATION 4: ELEVATED - Extra emphasis with thick shadow */}
+            <AppText variant="caption" style={styles.variantLabel}>
+              VARIATION 4: ELEVATED
+            </AppText>
+            <NeobrutalInfoCard variant="elevated" accentColor={colors.primary}>
+              <InfoSection title="Basics">
+                <InfoField 
+                  label="Project Manager" 
+                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
+                />
+                {(address.line1 || address.line2 || address.cityState) && (
+                  <InfoField 
+                    label="Address" 
+                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
+                  />
+                )}
+              </InfoSection>
+            </NeobrutalInfoCard>
 
             {!DEV_HAS_SCHEDULES ? (
               <Card style={styles.skeletonCard}>
@@ -301,5 +344,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#B00020",
+  },
+  variantLabel: {
+    marginTop: 16,
+    marginBottom: 8,
+    opacity: 0.6,
+    letterSpacing: 1,
   },
 });
