@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: colors.text,
     lineHeight: 28,
-    marginTop: 2,
+    marginTop: 7,
   },
   menuWrapper: {
     position: "absolute",
