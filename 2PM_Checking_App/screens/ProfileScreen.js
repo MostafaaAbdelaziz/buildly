@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
-import Card from "../components/Card";
+import NeobrutalInfoCard, { NeobrutalSmallCard } from "../components/NeobrutalInfoCard";
 import { colors } from "../constants/theme";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
@@ -60,7 +60,7 @@ export default function ProfileScreen({ navigation }) {
           Profile
         </AppText>
 
-        <Card style={styles.profileCard}>
+        <NeobrutalInfoCard variant="split" style={styles.profileCard}>
           <View style={styles.avatarSection}>
             <View style={styles.avatarCircle}>
               <AppText variant="title" bold style={styles.avatarText}>
@@ -88,45 +88,33 @@ export default function ProfileScreen({ navigation }) {
               {getRoleDisplay(role)}
             </AppText>
           </View>
-        </Card>
+        </NeobrutalInfoCard>
 
         <View style={styles.section}>
           <AppText variant="body" bold style={styles.sectionLabel}>
             Account
           </AppText>
 
-          <Card>
-            <View style={styles.infoRow}>
-              <AppText variant="body" style={styles.infoLabel}>
-                Email
-              </AppText>
-              <AppText variant="body" style={styles.infoValue}>
-                {user?.email || "Not set"}
-              </AppText>
-            </View>
-          </Card>
+          <NeobrutalSmallCard 
+            variant="split" 
+            label="Email" 
+            value={user?.email || "Not set"}
+            accentColor={colors.primary}
+          />
 
-          <Card>
-            <View style={styles.infoRow}>
-              <AppText variant="body" style={styles.infoLabel}>
-                Display Name
-              </AppText>
-              <AppText variant="body" style={styles.infoValue}>
-                {user?.displayName || "Not set"}
-              </AppText>
-            </View>
-          </Card>
+          <NeobrutalSmallCard 
+            variant="split" 
+            label="Display Name" 
+            value={user?.displayName || "Not set"}
+            accentColor="#16a34a"
+          />
 
-          <Card>
-            <View style={styles.infoRow}>
-              <AppText variant="body" style={styles.infoLabel}>
-                Role
-              </AppText>
-              <AppText variant="body" bold style={styles.infoValue}>
-                {getRoleDisplay(role)}
-              </AppText>
-            </View>
-          </Card>
+          <NeobrutalSmallCard 
+            variant="badge" 
+            label="Role" 
+            value={getRoleDisplay(role)}
+            accentColor={getRoleBadgeColor(role)}
+          />
         </View>
 
         <View style={styles.section}>
@@ -134,14 +122,14 @@ export default function ProfileScreen({ navigation }) {
             About
           </AppText>
 
-          <Card>
+          <NeobrutalInfoCard variant="stacked">
             <AppText variant="body" style={styles.aboutText}>
               Bob is your job site assistant for daily check-ins, issue tracking, and project coordination.
             </AppText>
             <AppText variant="caption" style={styles.versionText}>
               Version 1.0.0
             </AppText>
-          </Card>
+          </NeobrutalInfoCard>
         </View>
 
         <Button
@@ -159,7 +147,7 @@ export default function ProfileScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingBottom: 28, // Additional padding on top of tab bar padding
+    paddingBottom: 28,
   },
 
   title: {
@@ -168,7 +156,7 @@ const styles = StyleSheet.create({
 
   profileCard: {
     alignItems: "center",
-    paddingVertical: 24,
+    paddingVertical: 0,
     marginBottom: 24,
   },
 
@@ -219,20 +207,6 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     marginBottom: 12,
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  infoLabel: {
-    color: colors.textSecondary,
-  },
-  infoValue: {
-    textAlign: "right",
-    flex: 1,
-    marginLeft: 16,
   },
 
   aboutText: {

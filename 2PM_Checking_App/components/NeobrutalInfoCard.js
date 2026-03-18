@@ -10,7 +10,6 @@ import AppText from "./AppText";
  * - "stacked": Classic neobrutal with offset shadow (default)
  * - "split": Two-tone card with colored accent strip
  * - "badge": Compact badge-style with icon slot
- * - "elevated": Extra-thick shadow for emphasis
  */
 export default function NeobrutalInfoCard({
   variant = "stacked",
@@ -25,8 +24,6 @@ export default function NeobrutalInfoCard({
         return <SplitVariant accentColor={accentColor} backgroundColor={backgroundColor} style={style}>{children}</SplitVariant>;
       case "badge":
         return <BadgeVariant accentColor={accentColor} backgroundColor={backgroundColor} style={style}>{children}</BadgeVariant>;
-      case "elevated":
-        return <ElevatedVariant accentColor={accentColor} backgroundColor={backgroundColor} style={style}>{children}</ElevatedVariant>;
       case "stacked":
       default:
         return <StackedVariant accentColor={accentColor} backgroundColor={backgroundColor} style={style}>{children}</StackedVariant>;
@@ -88,23 +85,6 @@ function BadgeVariant({ children, accentColor, backgroundColor, style }) {
   );
 }
 
-// VARIANT 4: ELEVATED - Extra-thick shadow for high emphasis
-function ElevatedVariant({ children, accentColor, backgroundColor, style }) {
-  return (
-    <View style={[styles.wrapper, style]}>
-      {/* Thick shadow layer */}
-      <View style={styles.elevatedShadow} />
-      
-      {/* Colored top border */}
-      <View style={[styles.face, { backgroundColor }]}>
-        <View style={[styles.topBorder, { backgroundColor: accentColor }]} />
-        <View style={styles.elevatedContent}>
-          {children}
-        </View>
-      </View>
-    </View>
-  );
-}
 
 // Helper components for structured content
 export function InfoField({ label, value, style }) {
@@ -133,6 +113,76 @@ export function InfoSection({ title, children, style }) {
   );
 }
 
+/**
+ * NeobrutalSmallCard - Compact, muted version for small info displays
+ * Same 3 variants but with smaller shadows, thinner borders, and tighter padding
+ */
+export function NeobrutalSmallCard({
+  variant = "stacked",
+  label,
+  value,
+  accentColor = colors.primary,
+  backgroundColor = "#fff",
+  style,
+}) {
+  const renderVariant = () => {
+    switch (variant) {
+      case "split":
+        return (
+          <View style={[styles.smallWrapper, style]}>
+            <View style={styles.smallShadow} />
+            <View style={[styles.smallFace, styles.smallSplitFace, { backgroundColor }]}>
+              <View style={[styles.smallAccentStrip, { backgroundColor: accentColor }]} />
+              <View style={styles.smallSplitContent}>
+                <AppText variant="caption" style={styles.smallLabel}>
+                  {label}
+                </AppText>
+                <AppText variant="body" bold style={styles.smallValue}>
+                  {value}
+                </AppText>
+              </View>
+            </View>
+          </View>
+        );
+      case "badge":
+        return (
+          <View style={[styles.smallWrapper, style]}>
+            <View style={styles.smallShadow} />
+            <View style={[styles.smallFace, { 
+              backgroundColor, 
+              borderColor: accentColor,
+              borderWidth: 2,
+            }]}>
+              <AppText variant="caption" style={styles.smallLabel}>
+                {label}
+              </AppText>
+              <AppText variant="body" bold style={styles.smallValue}>
+                {value}
+              </AppText>
+            </View>
+          </View>
+        );
+      case "stacked":
+      default:
+        return (
+          <View style={[styles.smallWrapper, style]}>
+            <View style={styles.smallShadow} />
+            <View style={[styles.smallFace, { backgroundColor }]}>
+              <AppText variant="caption" style={styles.smallLabel}>
+                {label}
+              </AppText>
+              <AppText variant="body" bold style={styles.smallValue}>
+                {value}
+              </AppText>
+            </View>
+          </View>
+        );
+    }
+  };
+
+  return renderVariant();
+}
+
 const styles = StyleSheet.create({
   wrapper: {
     position: "relative",
@@ -156,16 +206,6 @@ const styles = StyleSheet.create({
     left: 3,
     right: -3,
     bottom: -3,
-    backgroundColor: "#111",
-    borderWidth: 2.5,
-    borderColor: "#111",
-  },
-  elevatedShadow: {
-    position: "absolute",
-    top: 6,
-    left: 6,
-    right: -6,
-    bottom: -6,
     backgroundColor: "#111",
     borderWidth: 2.5,
     borderColor: "#111",
@@ -198,17 +238,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   
-  // Elevated variant
-  topBorder: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 5,
-  },
-  elevatedContent: {
-    paddingTop: 4,
-  },
   
   // Content helpers
   fieldWrapper: {
@@ -231,5 +260,49 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 12,
     fontSize: 14,
+  },
+  
+  // Small card styles (muted version)
+  smallWrapper: {
+    position: "relative",
+    marginVertical: 6,
+  },
+  smallShadow: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    right: -2,
+    bottom: -2,
+    backgroundColor: "#111",
+    borderWidth: 1.5,
+    borderColor: "#111",
+  },
+  smallFace: {
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: "#111",
+    padding: 12,
+    position: "relative",
+  },
+  smallSplitFace: {
+    flexDirection: "row",
+    padding: 0,
+  },
+  smallAccentStrip: {
+    width: 5,
+  },
+  smallSplitContent: {
+    flex: 1,
+    padding: 12,
+  },
+  smallLabel: {
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    opacity: 0.6,
+    marginBottom: 4,
+    fontSize: 11,
+  },
+  smallValue: {
+    fontSize: 15,
   },
 });

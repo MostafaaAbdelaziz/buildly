@@ -1,11 +1,64 @@
-import React from "react";
-import { View, Pressable, StyleSheet, Platform } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Pressable, StyleSheet, Platform, Animated } from "react-native";
 import { colors } from "../constants/theme";
 
 export default function FloatingTabBar({ state, descriptors, navigation }) {
+  const indicatorPosition = useRef(new Animated.Value(0)).current;
+  const TAB_WIDTH = 48;
+  const GAP = 8;
+
+  useEffect(() => {
+    Animated.spring(indicatorPosition, {
+      toValue: state.index * (TAB_WIDTH + GAP),
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 150,
+      mass: 1,
+    }).start();
+  }, [state.index]);
+
   return (
     <View style={styles.container}>
       <View style={styles.tabBar}>
+        <Animated.View
+          style={[
+            styles.indicatorContainer,
+            {
+              transform: [{ translateX: indicatorPosition }],
+            },
+          ]}
+        >
+          <View style={styles.pixelatedBorder}>
+            {/* Top edge pixels */}
+            <View style={styles.topEdge}>
+              <View style={[styles.pixel, styles.corner]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.corner]} />
+            </View>
+            {/* Middle section */}
+            <View style={styles.middleSection}>
+              <View style={[styles.pixel, styles.side]} />
+              <View style={styles.innerSpace} />
+              <View style={[styles.pixel, styles.side]} />
+            </View>
+            {/* Bottom edge pixels */}
+            <View style={styles.bottomEdge}>
+              <View style={[styles.pixel, styles.corner]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.edge]} />
+              <View style={[styles.pixel, styles.corner]} />
+            </View>
+          </View>
+        </Animated.View>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
@@ -40,11 +93,11 @@ export default function FloatingTabBar({ state, descriptors, navigation }) {
               testID={options.tabBarTestID}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={[styles.tabItem, isFocused && styles.tabItemActive]}
+              style={styles.tabItem}
             >
               {IconComponent && (
                 <IconComponent
-                  color={isFocused ? colors.textOnPrimary : colors.textSecondary}
+                  color={isFocused ? colors.primary : colors.textSecondary}
                 />
               )}
             </Pressable>
@@ -80,15 +133,53 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.8)",
   },
+  indicatorContainer: {
+    position: "absolute",
+    width: 48,
+    height: 48,
+    top: 12,
+    left: 20,
+  },
+  pixelatedBorder: {
+    width: 48,
+    height: 48,
+  },
+  topEdge: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  middleSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    flex: 1,
+  },
+  bottomEdge: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  pixel: {
+    backgroundColor: colors.primary,
+  },
+  corner: {
+    width: 4,
+    height: 4,
+  },
+  edge: {
+    width: 4,
+    height: 3,
+  },
+  side: {
+    width: 3,
+    height: 42,
+  },
+  innerSpace: {
+    flex: 1,
+  },
   tabItem: {
     width: 48,
     height: 48,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    transition: "all 0.2s ease",
-  },
-  tabItemActive: {
-    backgroundColor: colors.primary,
   },
 });

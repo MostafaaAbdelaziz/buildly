@@ -15,13 +15,17 @@ service cloud.firestore {
     }
 
     // ----- Site members collection -----
-    // Any signed-in user can create (manager inviting). Only the invitee can accept/reject.
+    // Any signed-in user can create (manager inviting).
+    // Invitee can accept/reject PENDING invitations.
+    // Inviter (manager) can remove ACTIVE members.
     match /site_members/{membershipId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() &&
-        resource.data.userId == request.auth.uid &&
-        resource.data.status == 'PENDING';
+        (
+          (resource.data.userId == request.auth.uid && resource.data.status == 'PENDING') ||
+          (resource.data.invitedBy == request.auth.uid && request.resource.data.status == 'REMOVED')
+        );
       allow delete: if false;
     }
 

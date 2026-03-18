@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ActivityIndicator, ScrollView, Alert } from "react-native";
+import { View, StyleSheet, ActivityIndicator, ScrollView, Alert, TouchableOpacity } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
@@ -7,14 +7,96 @@ import Card from "../components/Card";
 import StatusCircle from "../components/StatusCircle";
 import NeobrutalIconButton from "../components/NeobrutalIconButton";
 import SiteActionsMenu from "../components/SiteActionsMenu";
-import NeobrutalInfoCard, { InfoField, InfoSection } from "../components/NeobrutalInfoCard";
+import NeobrutalInfoCard, { InfoField, InfoSection, NeobrutalSmallCard } from "../components/NeobrutalInfoCard";
 import { useRoute } from "@react-navigation/native";
 import { useSiteDetail } from "../hooks/useSiteDetail";
 import { useUserEmail } from "../hooks/useUserEmail";
+import { useActiveSiteMembers } from "../hooks/useActiveSiteMembers";
+import { useSiteMembers } from "../hooks/useSiteMembers";
 import { useAuth } from "../context/AuthContext";
 import { softDeleteSite } from "../services/siteRepository";
 import { colors } from "../constants/theme";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
+
+const ROLE_LABELS = {
+  FOREMAN: "Foreman",
+  MANAGER: "Manager",
+  SUBCONTRACTOR: "Sub",
+  WORKER: "Worker",
+};
+
+function MemberRow({ member, onRemove, isManager }) {
+  const { email, loading } = useUserEmail(member.userId);
+  const roleLabel = ROLE_LABELS[member.role] ?? member.role;
+
+  return (
+    <View style={memberRowStyles.row}>
+      <View style={memberRowStyles.info}>
+        <AppText variant="body" bold numberOfLines={1} style={memberRowStyles.email}>
+          {loading ? "Loading..." : email ?? member.userId}
+        </AppText>
+        <View style={memberRowStyles.rolePill}>
+          <AppText variant="caption" bold style={memberRowStyles.roleText}>
+            {roleLabel}
+          </AppText>
+        </View>
+      </View>
+      {isManager && (
+        <TouchableOpacity
+          onPress={() => onRemove(member)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={memberRowStyles.removeBtn}
+        >
+          <AppText variant="caption" style={memberRowStyles.removeText}>
+            Remove
+          </AppText>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+const memberRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  info: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginRight: 8,
+  },
+  email: {
+    flex: 1,
+  },
+  rolePill: {
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1.5,
+    borderColor: "#D1D5DB",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  roleText: {
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    color: "#374151",
+  },
+  removeBtn: {
+    paddingHorizontal: 4,
+  },
+  removeText: {
+    color: "#dc2626",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+});
 
 const DEV_HAS_SCHEDULES = true;
 
@@ -28,13 +110,38 @@ export default function SiteDetailScreen({ navigation }) {
   const { siteId } = route.params || {};
   const { site, loading, error } = useSiteDetail(siteId);
   const { email: pmEmail, loading: pmLoading } = useUserEmail(site?.projectManagerId);
-  const { role } = useAuth();
+  const { members, loading: membersLoading } = useActiveSiteMembers(siteId);
+  const { user, role } = useAuth();
   const isManager = role === "manager";
   const tabBarPadding = useTabBarPadding();
+
+  const { handleRemove } = useSiteMembers({ uid: user?.uid ?? "", name: user?.email ?? "" });
 
   const [deleting, setDeleting] = useState(false);
 
   const address = site?.address || {};
+
+  const handleRemoveMember = (member) => {
+    const displayName = member.email ?? member.userId;
+    Alert.alert(
+      "Remove Member",
+      `Remove ${displayName} from this site?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await handleRemove(member.id);
+            } catch (err) {
+              Alert.alert("Error", err.message || "Failed to remove member.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleDeleteSite = () => {
     Alert.alert(
@@ -110,68 +217,7 @@ export default function SiteDetailScreen({ navigation }) {
               ) : null}
             </View>
 
-            {/* VARIATION 1: STACKED - Classic Neobrutal */}
-            <AppText variant="caption" style={styles.variantLabel}>
-              VARIATION 1: STACKED
-            </AppText>
             <NeobrutalInfoCard variant="stacked">
-              <InfoSection title="Basics">
-                <InfoField 
-                  label="Project Manager" 
-                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
-                />
-                {(address.line1 || address.line2 || address.cityState) && (
-                  <InfoField 
-                    label="Address" 
-                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
-                  />
-                )}
-              </InfoSection>
-            </NeobrutalInfoCard>
-
-            {/* VARIATION 2: SPLIT - Two-tone with accent strip */}
-            <AppText variant="caption" style={styles.variantLabel}>
-              VARIATION 2: SPLIT
-            </AppText>
-            <NeobrutalInfoCard variant="split" accentColor={colors.primary}>
-              <InfoSection title="Basics">
-                <InfoField 
-                  label="Project Manager" 
-                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
-                />
-                {(address.line1 || address.line2 || address.cityState) && (
-                  <InfoField 
-                    label="Address" 
-                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
-                  />
-                )}
-              </InfoSection>
-            </NeobrutalInfoCard>
-
-            {/* VARIATION 3: BADGE - Compact with colored border */}
-            <AppText variant="caption" style={styles.variantLabel}>
-              VARIATION 3: BADGE
-            </AppText>
-            <NeobrutalInfoCard variant="badge" accentColor={colors.accent}>
-              <InfoSection title="Basics">
-                <InfoField 
-                  label="Project Manager" 
-                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
-                />
-                {(address.line1 || address.line2 || address.cityState) && (
-                  <InfoField 
-                    label="Address" 
-                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
-                  />
-                )}
-              </InfoSection>
-            </NeobrutalInfoCard>
-
-            {/* VARIATION 4: ELEVATED - Extra emphasis with thick shadow */}
-            <AppText variant="caption" style={styles.variantLabel}>
-              VARIATION 4: ELEVATED
-            </AppText>
-            <NeobrutalInfoCard variant="elevated" accentColor={colors.primary}>
               <InfoSection title="Basics">
                 <InfoField 
                   label="Project Manager" 
@@ -209,52 +255,71 @@ export default function SiteDetailScreen({ navigation }) {
                 </View>
 
                 <View style={styles.cardsRow}>
-                  <Card style={styles.infoCardHalf}>
-                    <AppText variant="caption" style={styles.cardCaption}>
-                      Current task
-                    </AppText>
-                    <AppText variant="body" bold>
-                      {MOCK_TASK}
-                    </AppText>
-                  </Card>
-                  <Card style={styles.infoCardHalf}>
-                    <AppText variant="caption" style={styles.cardCaption}>
-                      Foreman
-                    </AppText>
-                    <AppText variant="body" bold>
-                      {MOCK_FOREMAN}
-                    </AppText>
-                  </Card>
+                  <NeobrutalSmallCard 
+                    variant="stacked"
+                    label="Current task"
+                    value={MOCK_TASK}
+                    style={styles.smallCardHalf}
+                  />
+                  <NeobrutalSmallCard 
+                    variant="stacked"
+                    label="Foreman"
+                    value={MOCK_FOREMAN}
+                    style={styles.smallCardHalf}
+                  />
                 </View>
 
-                <Card style={styles.summaryCard}>
-                  <AppText variant="body" bold style={styles.summaryHeading}>
-                    Summary
-                  </AppText>
-                  <AppText variant="body" style={styles.summaryPlaceholder}>
-                    —
-                  </AppText>
-                </Card>
+                <NeobrutalInfoCard variant="stacked">
+                  <InfoSection title="Summary">
+                    <AppText variant="body" style={styles.summaryPlaceholder}>
+                      —
+                    </AppText>
+                  </InfoSection>
+                </NeobrutalInfoCard>
 
-                <Button
-                  variant="primary"
-                  title="Open Blueprint"
-                  onPress={() => navigation.navigate("SiteDrawings", { siteId, siteName: site?.name })}
-                  fullWidth
-                />
-                <Button
-                  variant="secondary"
-                  title="Open Schedule"
-                  onPress={() =>
-                    navigation.navigate("SiteSchedules", {
-                      siteId,
-                      siteName: site.name,
-                    })
-                  }
-                  fullWidth
-                />
+                <View style={styles.buttonsRow}>
+                  <Button
+                    variant="primary"
+                    title="Blueprint"
+                    onPress={() => navigation.navigate("SiteDrawings", { siteId, siteName: site?.name })}
+                    style={styles.blueprintButton}
+                  />
+                  <Button
+                    variant="secondary"
+                    title="Schedule"
+                    onPress={() =>
+                      navigation.navigate("SiteSchedules", {
+                        siteId,
+                        siteName: site.name,
+                      })
+                    }
+                    style={styles.scheduleButton}
+                  />
+                </View>
               </>
             )}
+
+            {/* Members Section */}
+            <NeobrutalInfoCard variant="badge" accentColor="#16a34a">
+              <InfoSection title={`Members (${membersLoading ? "…" : members.length})`}>
+                {membersLoading ? (
+                  <ActivityIndicator style={{ marginTop: 8 }} />
+                ) : members.length === 0 ? (
+                  <AppText variant="caption" style={styles.emptyMembers}>
+                    No active members yet.
+                  </AppText>
+                ) : (
+                  members.map((member) => (
+                    <MemberRow
+                      key={member.id}
+                      member={member}
+                      onRemove={handleRemoveMember}
+                      isManager={isManager}
+                    />
+                  ))
+                )}
+              </InfoSection>
+            </NeobrutalInfoCard>
           </>
         )}
       </ScrollView>
@@ -325,30 +390,28 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  infoCardHalf: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  cardCaption: {
-    opacity: 0.7,
-    marginBottom: 4,
-  },
-  summaryCard: {
+  buttonsRow: {
+    flexDirection: "row",
+    gap: 12,
     marginBottom: 12,
   },
-  summaryHeading: {
-    marginBottom: 8,
+  blueprintButton: {
+    flex: 1.4,
+  },
+  scheduleButton: {
+    flex: 1,
   },
   summaryPlaceholder: {
     opacity: 0.5,
   },
+  emptyMembers: {
+    opacity: 0.5,
+    marginTop: 4,
+  },
   errorText: {
     color: "#B00020",
   },
-  variantLabel: {
-    marginTop: 16,
-    marginBottom: 8,
-    opacity: 0.6,
-    letterSpacing: 1,
+  smallCardHalf: {
+    flex: 1,
   },
 });
