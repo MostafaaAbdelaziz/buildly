@@ -4,8 +4,8 @@ import {
   query,
   where,
   onSnapshot,
-  getDocs,
-  documentId,
+  doc,
+  getDoc,
 } from "firebase/firestore";
 import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 
@@ -22,60 +22,63 @@ export function useSites(userId) {
     }
     setLoading(true);
     setError(null);
-    const q = query(
+
+    let managerSites = [];
+    let memberSites = [];
+    
+    const updateSites = () => {
+      const merged = [...managerSites, ...memberSites]
+        .filter((site) => site && site.deleted !== true)
+        .filter(
+          (site, index, arr) => arr.findIndex((s) => s.id === site.id) === index
+        )
+        .sort((a, b) => {
+          const ta = a.createdAt?.seconds ?? 0;
+          const tb = b.createdAt?.seconds ?? 0;
+          return tb - ta;
+        });
+
+      setSites(merged);
+      setLoading(false);
+    };
+    const managerQ = query(
       collection(firebase_fs, "sites"),
       where("projectManagerId", "==", userId)
     );
-    const unsub = onSnapshot(
-      q,
+    const memberQ = query(
+      collection(firebase_fs, "site_members"),
+      where("userId", "==", userId),
+      where("status", "==", "ACTIVE")
+    );
+    const unsubManager = onSnapshot(
+      managerQ,
+      (snap) => {
+        managerSites = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        updateSites();
+      },
+      (err) => {
+        setError(err);
+        setLoading(false);
+      }
+    );
+    const unsubMembers = onSnapshot(
+      memberQ,
       async (snap) => {
         try {
-          const managerSites = snap.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((site) => site.deleted !== true);
-
-          if (managerSites.length > 0) {
-            const sortedManagerSites = managerSites.sort((a, b) => {
-              const ta = a.createdAt?.seconds ?? 0;
-              const tb = b.createdAt?.seconds ?? 0;
-              return tb - ta;
-            });
-
-            setSites(sortedManagerSites);
-            setLoading(false);
-            return;
-          }
-          const memberQ = query(
-            collection(firebase_fs, "site_members"),
-            where("userId", "==", userId),
-            where("status", "==", "ACTIVE")
-          );
-
-          const memberSnap = await getDocs(memberQ);
-          const siteIds = [...new Set(memberSnap.docs.map((d) => d.data().siteId).filter(Boolean))];
-
+          const siteIds = [...new Set(snap.docs.map((d) => d.data().siteId).filter(Boolean))];
           if (siteIds.length === 0) {
-            setSites([]);
-            setLoading(false);
+            memberSites = [];
+            updateSites();
             return;
           }
-          const sitesQ = query(
-            collection(firebase_fs, "sites"),
-            where(documentId(), "in", siteIds.slice(0, 10))
+          const loadedSites = await Promise.all(
+            siteIds.map(async (siteId) => {
+              const siteSnap = await getDoc(doc(firebase_fs, "sites", siteId));
+              return siteSnap.exists() ? { id: siteSnap.id, ...siteSnap.data() } : null;
+            })
           );
-
-          const sitesSnap = await getDocs(sitesQ);
-          const memberSites = sitesSnap.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((site) => site.deleted !== true)
-            .sort((a, b) => {
-              const ta = a.createdAt?.seconds ?? 0;
-              const tb = b.createdAt?.seconds ?? 0;
-              return tb - ta;
-            });
-
-          setSites(memberSites);
-          setLoading(false);
+          memberSites = loadedSites.filter(Boolean);
+          updateSites();
         } catch (err) {
           setError(err);
           setLoading(false);
@@ -86,8 +89,10 @@ export function useSites(userId) {
         setLoading(false);
       }
     );
-
-    return () => unsub();
+    return () => {
+      unsubManager();
+      unsubMembers();
+    };
   }, [userId]);
   return { sites, loading, error };
 }
