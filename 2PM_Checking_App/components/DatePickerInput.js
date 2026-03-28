@@ -3,7 +3,6 @@ import { View, StyleSheet, Platform, Pressable } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { colors } from "../constants/theme";
 import AppText from "./AppText";
-import ThemedTextInput from "./ThemedTextInput";
 
 /**
  * DatePickerInput - A themed date picker that uses native date selectors
@@ -105,7 +104,6 @@ export default function DatePickerInput({
               <DateTimePicker
                 value={dateValue}
                 mode="date"
-                display="spinner"
                 onChange={handleDateChange}
                 style={styles.iosPicker}
               />
@@ -114,7 +112,7 @@ export default function DatePickerInput({
             <DateTimePicker
               value={dateValue}
               mode="date"
-              display="default"
+              display="calendar"
               onChange={handleDateChange}
             />
           )}
