@@ -6,10 +6,12 @@ import Button from "../components/Button";
 import ThemedTextInput from "../components/ThemedTextInput";
 import { useAuth } from "../context/AuthContext";
 import { buildSitePayload, createSite } from "../services/siteRepository";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function NewSiteScreen({ route, navigation }) {
   const siteName = route?.params?.siteName || "New site";
   const { user, role } = useAuth();
+  const tabBarPadding = useTabBarPadding();
 
   const [addressLine1, setAddressLine1] = useState("");
   const [cityState, setCityState] = useState("");
@@ -37,7 +39,7 @@ export default function NewSiteScreen({ route, navigation }) {
         description,
       });
       const ref = await createSite(payload);
-      navigation.navigate("SiteDetail", { siteId: ref.id });
+      navigation.replace("SiteDetail", { siteId: ref.id });
     } catch (e) {
       console.log("NewSiteScreen create error:", e?.message);
       Alert.alert("Could not create site", "Something went wrong saving this site. Try again.");
@@ -49,7 +51,7 @@ export default function NewSiteScreen({ route, navigation }) {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

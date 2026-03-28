@@ -7,15 +7,11 @@ import { useDrawings } from "../hooks/useDrawings";
 import { useAuth } from "../context/AuthContext";
 import { getRoleConfig } from "../constants/roleConfig";
 
-// For now we assume a single demo site.
-const DEFAULT_SITE_ID = "demo-site";
-
-export default function DrawingsScreen({ navigation }) {
+export default function DrawingsScreen({ navigation, route }) {
+  const { siteId, siteName } = route.params ?? {};
   const { role } = useAuth();
   const roleCfg = getRoleConfig(role);
   const canEdit = roleCfg?.canCreateIssue || roleCfg?.canResolveIssue || roleCfg?.canCreateSchedule;
-
-  const siteId = DEFAULT_SITE_ID;
   const { folders, loading: foldersLoading, error: foldersError, createFolder } = useFolders(siteId);
   const [activeFolderId, setActiveFolderId] = useState(null);
   const activeFolder = useMemo(
@@ -105,7 +101,7 @@ export default function DrawingsScreen({ navigation }) {
   return (
     <Screen>
       <View style={styles.container}>
-        <Text style={styles.header}>Drawings</Text>
+        <Text style={styles.header}>{siteName ? `${siteName} — Drawings` : "Drawings"}</Text>
 
         <View style={styles.layout}>
           <View style={styles.leftPane}>

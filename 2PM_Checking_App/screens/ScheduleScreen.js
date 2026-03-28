@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Pressable } from "react-native";
 import { useSchedule } from "../context/ScheduleContext";
 import { useAuth } from "../context/AuthContext";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const START_HOUR = 6;

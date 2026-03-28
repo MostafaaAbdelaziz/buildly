@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
   },
   switcherWrapFloating: {
     flexDirection: "row",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.5)",
     borderRadius: 0,
     padding: 3,
     borderWidth: 2,
@@ -85,7 +85,7 @@ export const styles = StyleSheet.create({
   },
   switcherFloatTop: {
     position: "absolute",
-    top: HEADER_HEIGHT,
+    top: HEADER_HEIGHT + 12,
     right: 8,
     zIndex: 20,
   },

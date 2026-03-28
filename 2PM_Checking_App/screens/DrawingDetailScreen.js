@@ -3,15 +3,17 @@ import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView } from "re
 import Screen from "../components/Screen";
 import { useRoute } from "@react-navigation/native";
 import { useDrawingDetail } from "../hooks/useDrawingDetail";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function DrawingDetailScreen() {
   const route = useRoute();
   const { siteId, drawingId } = route.params || {};
   const { drawing, loading, error } = useDrawingDetail(siteId, drawingId);
+  const tabBarPadding = useTabBarPadding();
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: tabBarPadding }]}>
         {loading ? (
           <ActivityIndicator />
         ) : error ? (

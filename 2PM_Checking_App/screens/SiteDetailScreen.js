@@ -1,20 +1,73 @@
-import React from "react";
-import { View, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, ActivityIndicator, ScrollView, Alert } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import StatusCircle from "../components/StatusCircle";
+import NeobrutalIconButton from "../components/NeobrutalIconButton";
+import SiteActionsMenu from "../components/SiteActionsMenu";
 import { useRoute } from "@react-navigation/native";
 import { useSiteDetail } from "../hooks/useSiteDetail";
+import { useUserEmail } from "../hooks/useUserEmail";
+import { useAuth } from "../context/AuthContext";
+import { softDeleteSite } from "../services/siteRepository";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
-export default function SiteDetailScreen() {
+const DEV_HAS_SCHEDULES = true;
+
+const MOCK_STATUS = "On Track";
+const MOCK_DAYS = 42;
+const MOCK_TASK = "Level 1 Drive All";
+const MOCK_FOREMAN = "Mr. Bob";
+
+export default function SiteDetailScreen({ navigation }) {
   const route = useRoute();
   const { siteId } = route.params || {};
   const { site, loading, error } = useSiteDetail(siteId);
+  const { email: pmEmail, loading: pmLoading } = useUserEmail(site?.projectManagerId);
+  const { role } = useAuth();
+  const isManager = role === "manager";
+  const tabBarPadding = useTabBarPadding();
+
+  const [deleting, setDeleting] = useState(false);
 
   const address = site?.address || {};
 
+  const handleDeleteSite = () => {
+    Alert.alert(
+      "Delete Site",
+      `Are you sure you want to delete "${site.name}"? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await softDeleteSite(siteId);
+              Alert.alert("Success", "Site deleted successfully");
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert("Error", err.message || "Failed to delete site");
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView 
+        contentContainerStyle={[styles.container, { paddingBottom: tabBarPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         {!siteId ? (
           <AppText variant="body" style={styles.errorText}>
             Missing site id.
@@ -32,6 +85,14 @@ export default function SiteDetailScreen() {
         ) : (
           <>
             <View style={styles.headerBlock}>
+              {isManager && (
+                <SiteActionsMenu
+                  onInvite={() =>
+                    navigation.navigate("InviteMember", { siteId, siteName: site.name })
+                  }
+                  onDelete={handleDeleteSite}
+                />
+              )}
               <AppText variant="title" bold style={styles.title}>
                 {site.name}
               </AppText>
@@ -47,7 +108,7 @@ export default function SiteDetailScreen() {
               ) : null}
             </View>
 
-            <View style={styles.infoCard}>
+            <Card style={styles.infoCard}>
               <AppText variant="body" bold style={styles.sectionLabel}>
                 Basics
               </AppText>
@@ -55,34 +116,14 @@ export default function SiteDetailScreen() {
                 Project manager
               </AppText>
               <AppText variant="body" style={styles.fieldValue}>
-                {site.projectManagerId || "Unknown"}
+                {pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
               </AppText>
 
-              <AppText variant="caption" style={styles.fieldLabel}>
-                Status
-              </AppText>
-              <AppText variant="body" style={styles.fieldValue}>
-                {site.status || "ACTIVE"}
-              </AppText>
-
-              {site.startDate ? (
-                <>
-                  <AppText variant="caption" style={styles.fieldLabel}>
-                    Start date
-                  </AppText>
-                  <AppText variant="body" style={styles.fieldValue}>
-                    {String(site.startDate.toDate ? site.startDate.toDate() : site.startDate)}
-                  </AppText>
-                </>
-              ) : null}
-            </View>
-
-            <View style={styles.infoCard}>
-              <AppText variant="body" bold style={styles.sectionLabel}>
-                Address
-              </AppText>
               {address.line1 || address.line2 || address.cityState ? (
                 <>
+                  <AppText variant="caption" style={styles.fieldLabel}>
+                    Address
+                  </AppText>
                   {address.line1 ? (
                     <AppText variant="body" style={styles.fieldValue}>
                       {address.line1}
@@ -99,12 +140,78 @@ export default function SiteDetailScreen() {
                     </AppText>
                   ) : null}
                 </>
-              ) : (
-                <AppText variant="caption" style={styles.muted}>
-                  No address on file yet.
+              ) : null}
+            </Card>
+
+            {!DEV_HAS_SCHEDULES ? (
+              <Card style={styles.skeletonCard}>
+                <NeobrutalIconButton
+                  onPress={() => {
+                    navigation.navigate("SiteSchedules", {
+                      siteId,
+                      siteName: site.name,
+                    });
+                  }}
+                  style={styles.skeletonButton}
+                />
+                <AppText variant="caption" style={styles.skeletonLabel}>
+                  Add Schedules
                 </AppText>
-              )}
-            </View>
+              </Card>
+            ) : (
+              <>
+                <View style={styles.circlesRow}>
+                  <StatusCircle label={MOCK_STATUS} caption="status" />
+                  <StatusCircle label={`${MOCK_DAYS} days`} caption="to completion" />
+                </View>
+
+                <View style={styles.cardsRow}>
+                  <Card style={styles.infoCardHalf}>
+                    <AppText variant="caption" style={styles.cardCaption}>
+                      Current task
+                    </AppText>
+                    <AppText variant="body" bold>
+                      {MOCK_TASK}
+                    </AppText>
+                  </Card>
+                  <Card style={styles.infoCardHalf}>
+                    <AppText variant="caption" style={styles.cardCaption}>
+                      Foreman
+                    </AppText>
+                    <AppText variant="body" bold>
+                      {MOCK_FOREMAN}
+                    </AppText>
+                  </Card>
+                </View>
+
+                <Card style={styles.summaryCard}>
+                  <AppText variant="body" bold style={styles.summaryHeading}>
+                    Summary
+                  </AppText>
+                  <AppText variant="body" style={styles.summaryPlaceholder}>
+                    —
+                  </AppText>
+                </Card>
+
+                <Button
+                  variant="primary"
+                  title="Open Blueprint"
+                  onPress={() => navigation.navigate("SiteDrawings", { siteId, siteName: site?.name })}
+                  fullWidth
+                />
+                <Button
+                  variant="secondary"
+                  title="Open Schedule"
+                  onPress={() =>
+                    navigation.navigate("SiteSchedules", {
+                      siteId,
+                      siteName: site.name,
+                    })
+                  }
+                  fullWidth
+                />
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -114,7 +221,7 @@ export default function SiteDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 32,
+    paddingBottom: 32, // Additional padding on top of tab bar padding
   },
   headerBlock: {
     marginBottom: 16,
@@ -139,12 +246,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   infoCard: {
-    marginTop: 12,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#EEE",
+    marginBottom: 12,
   },
   sectionLabel: {
     marginBottom: 8,
@@ -156,11 +258,48 @@ const styles = StyleSheet.create({
   fieldValue: {
     fontWeight: "700",
   },
-  muted: {
-    opacity: 0.6,
+  skeletonCard: {
+    marginTop: 12,
+    marginBottom: 12,
+    borderStyle: "dashed",
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  skeletonButton: {
+    marginBottom: 8,
+  },
+  skeletonLabel: {
+    opacity: 0.7,
+  },
+  circlesRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 16,
+    gap: 16,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  infoCardHalf: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  cardCaption: {
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  summaryCard: {
+    marginBottom: 12,
+  },
+  summaryHeading: {
+    marginBottom: 8,
+  },
+  summaryPlaceholder: {
+    opacity: 0.5,
   },
   errorText: {
     color: "#B00020",
   },
 });
-
