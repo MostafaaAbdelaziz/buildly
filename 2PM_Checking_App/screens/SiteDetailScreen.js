@@ -1,20 +1,182 @@
-import React from "react";
-import { View, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, ActivityIndicator, ScrollView, Alert, TouchableOpacity } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import StatusCircle from "../components/StatusCircle";
+import NeobrutalIconButton from "../components/NeobrutalIconButton";
+import SiteActionsMenu from "../components/SiteActionsMenu";
+import NeobrutalInfoCard, { InfoField, InfoSection, NeobrutalSmallCard } from "../components/NeobrutalInfoCard";
 import { useRoute } from "@react-navigation/native";
 import { useSiteDetail } from "../hooks/useSiteDetail";
+import { useUserEmail } from "../hooks/useUserEmail";
+import { useActiveSiteMembers } from "../hooks/useActiveSiteMembers";
+import { useSiteMembers } from "../hooks/useSiteMembers";
+import { useAuth } from "../context/AuthContext";
+import { softDeleteSite } from "../services/siteRepository";
+import { colors } from "../constants/theme";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
-export default function SiteDetailScreen() {
+const ROLE_LABELS = {
+  FOREMAN: "Foreman",
+  MANAGER: "Manager",
+  SUBCONTRACTOR: "Sub",
+  WORKER: "Worker",
+};
+
+function MemberRow({ member, onRemove, isManager }) {
+  const { email, loading } = useUserEmail(member.userId);
+  const roleLabel = ROLE_LABELS[member.role] ?? member.role;
+
+  return (
+    <View style={memberRowStyles.row}>
+      <View style={memberRowStyles.info}>
+        <AppText variant="body" bold numberOfLines={1} style={memberRowStyles.email}>
+          {loading ? "Loading..." : email ?? member.userId}
+        </AppText>
+        <View style={memberRowStyles.rolePill}>
+          <AppText variant="caption" bold style={memberRowStyles.roleText}>
+            {roleLabel}
+          </AppText>
+        </View>
+      </View>
+      {isManager && (
+        <TouchableOpacity
+          onPress={() => onRemove(member)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={memberRowStyles.removeBtn}
+        >
+          <AppText variant="caption" style={memberRowStyles.removeText}>
+            Remove
+          </AppText>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+const memberRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  info: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginRight: 8,
+  },
+  email: {
+    flex: 1,
+  },
+  rolePill: {
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1.5,
+    borderColor: "#D1D5DB",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  roleText: {
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    color: "#374151",
+  },
+  removeBtn: {
+    paddingHorizontal: 4,
+  },
+  removeText: {
+    color: "#dc2626",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+});
+
+const DEV_HAS_SCHEDULES = true;
+
+const MOCK_STATUS = "On Track";
+const MOCK_DAYS = 42;
+const MOCK_TASK = "Level 1 Drive All";
+const MOCK_FOREMAN = "Mr. Bob";
+
+export default function SiteDetailScreen({ navigation }) {
   const route = useRoute();
   const { siteId } = route.params || {};
   const { site, loading, error } = useSiteDetail(siteId);
+  const { email: pmEmail, loading: pmLoading } = useUserEmail(site?.projectManagerId);
+  const { members, loading: membersLoading } = useActiveSiteMembers(siteId);
+  const { user, role } = useAuth();
+  const isManager = role === "manager";
+  const tabBarPadding = useTabBarPadding();
+
+  const { handleRemove } = useSiteMembers({ uid: user?.uid ?? "", name: user?.email ?? "" });
+
+  const [deleting, setDeleting] = useState(false);
 
   const address = site?.address || {};
 
+  const handleRemoveMember = (member) => {
+    const displayName = member.email ?? member.userId;
+    Alert.alert(
+      "Remove Member",
+      `Remove ${displayName} from this site?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await handleRemove(member.id);
+            } catch (err) {
+              Alert.alert("Error", err.message || "Failed to remove member.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteSite = () => {
+    Alert.alert(
+      "Delete Site",
+      `Are you sure you want to delete "${site.name}"? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await softDeleteSite(siteId);
+              Alert.alert("Success", "Site deleted successfully");
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert("Error", err.message || "Failed to delete site");
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView 
+        contentContainerStyle={[styles.container, { paddingBottom: tabBarPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         {!siteId ? (
           <AppText variant="body" style={styles.errorText}>
             Missing site id.
@@ -32,6 +194,14 @@ export default function SiteDetailScreen() {
         ) : (
           <>
             <View style={styles.headerBlock}>
+              {isManager && (
+                <SiteActionsMenu
+                  onInvite={() =>
+                    navigation.navigate("InviteMember", { siteId, siteName: site.name })
+                  }
+                  onDelete={handleDeleteSite}
+                />
+              )}
               <AppText variant="title" bold style={styles.title}>
                 {site.name}
               </AppText>
@@ -47,64 +217,109 @@ export default function SiteDetailScreen() {
               ) : null}
             </View>
 
-            <View style={styles.infoCard}>
-              <AppText variant="body" bold style={styles.sectionLabel}>
-                Basics
-              </AppText>
-              <AppText variant="caption" style={styles.fieldLabel}>
-                Project manager
-              </AppText>
-              <AppText variant="body" style={styles.fieldValue}>
-                {site.projectManagerId || "Unknown"}
-              </AppText>
+            <NeobrutalInfoCard variant="stacked">
+              <InfoSection title="Basics">
+                <InfoField 
+                  label="Project Manager" 
+                  value={pmLoading ? "Loading..." : pmEmail ?? site.projectManagerId}
+                />
+                {(address.line1 || address.line2 || address.cityState) && (
+                  <InfoField 
+                    label="Address" 
+                    value={[address.line1, address.line2, address.cityState].filter(Boolean).join(", ")}
+                  />
+                )}
+              </InfoSection>
+            </NeobrutalInfoCard>
 
-              <AppText variant="caption" style={styles.fieldLabel}>
-                Status
-              </AppText>
-              <AppText variant="body" style={styles.fieldValue}>
-                {site.status || "ACTIVE"}
-              </AppText>
-
-              {site.startDate ? (
-                <>
-                  <AppText variant="caption" style={styles.fieldLabel}>
-                    Start date
-                  </AppText>
-                  <AppText variant="body" style={styles.fieldValue}>
-                    {String(site.startDate.toDate ? site.startDate.toDate() : site.startDate)}
-                  </AppText>
-                </>
-              ) : null}
-            </View>
-
-            <View style={styles.infoCard}>
-              <AppText variant="body" bold style={styles.sectionLabel}>
-                Address
-              </AppText>
-              {address.line1 || address.line2 || address.cityState ? (
-                <>
-                  {address.line1 ? (
-                    <AppText variant="body" style={styles.fieldValue}>
-                      {address.line1}
-                    </AppText>
-                  ) : null}
-                  {address.line2 ? (
-                    <AppText variant="body" style={styles.fieldValue}>
-                      {address.line2}
-                    </AppText>
-                  ) : null}
-                  {address.cityState ? (
-                    <AppText variant="body" style={styles.fieldValue}>
-                      {address.cityState}
-                    </AppText>
-                  ) : null}
-                </>
-              ) : (
-                <AppText variant="caption" style={styles.muted}>
-                  No address on file yet.
+            {!DEV_HAS_SCHEDULES ? (
+              <Card style={styles.skeletonCard}>
+                <NeobrutalIconButton
+                  onPress={() => {
+                    navigation.navigate("SiteSchedules", {
+                      siteId,
+                      siteName: site.name,
+                    });
+                  }}
+                  style={styles.skeletonButton}
+                />
+                <AppText variant="caption" style={styles.skeletonLabel}>
+                  Add Schedules
                 </AppText>
-              )}
-            </View>
+              </Card>
+            ) : (
+              <>
+                <View style={styles.circlesRow}>
+                  <StatusCircle label={MOCK_STATUS} caption="status" />
+                  <StatusCircle label={`${MOCK_DAYS} days`} caption="to completion" />
+                </View>
+
+                <View style={styles.cardsRow}>
+                  <NeobrutalSmallCard 
+                    variant="stacked"
+                    label="Current task"
+                    value={MOCK_TASK}
+                    style={styles.smallCardHalf}
+                  />
+                  <NeobrutalSmallCard 
+                    variant="stacked"
+                    label="Foreman"
+                    value={MOCK_FOREMAN}
+                    style={styles.smallCardHalf}
+                  />
+                </View>
+
+                <NeobrutalInfoCard variant="stacked">
+                  <InfoSection title="Summary">
+                    <AppText variant="body" style={styles.summaryPlaceholder}>
+                      —
+                    </AppText>
+                  </InfoSection>
+                </NeobrutalInfoCard>
+
+                <View style={styles.buttonsRow}>
+                  <Button
+                    variant="primary"
+                    title="Blueprint"
+                    onPress={() => navigation.navigate("SiteDrawings", { siteId, siteName: site?.name })}
+                    style={styles.blueprintButton}
+                  />
+                  <Button
+                    variant="secondary"
+                    title="Schedule"
+                    onPress={() =>
+                      navigation.navigate("SiteSchedules", {
+                        siteId,
+                        siteName: site.name,
+                      })
+                    }
+                    style={styles.scheduleButton}
+                  />
+                </View>
+              </>
+            )}
+
+            {/* Members Section */}
+            <NeobrutalInfoCard variant="badge" accentColor="#16a34a">
+              <InfoSection title={`Members (${membersLoading ? "…" : members.length})`}>
+                {membersLoading ? (
+                  <ActivityIndicator style={{ marginTop: 8 }} />
+                ) : members.length === 0 ? (
+                  <AppText variant="caption" style={styles.emptyMembers}>
+                    No active members yet.
+                  </AppText>
+                ) : (
+                  members.map((member) => (
+                    <MemberRow
+                      key={member.id}
+                      member={member}
+                      onRemove={handleRemoveMember}
+                      isManager={isManager}
+                    />
+                  ))
+                )}
+              </InfoSection>
+            </NeobrutalInfoCard>
           </>
         )}
       </ScrollView>
@@ -114,7 +329,7 @@ export default function SiteDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 32,
+    paddingBottom: 32, // Additional padding on top of tab bar padding
   },
   headerBlock: {
     marginBottom: 16,
@@ -139,12 +354,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   infoCard: {
-    marginTop: 12,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#EEE",
+    marginBottom: 12,
   },
   sectionLabel: {
     marginBottom: 8,
@@ -156,11 +366,52 @@ const styles = StyleSheet.create({
   fieldValue: {
     fontWeight: "700",
   },
-  muted: {
-    opacity: 0.6,
+  skeletonCard: {
+    marginTop: 12,
+    marginBottom: 12,
+    borderStyle: "dashed",
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  skeletonButton: {
+    marginBottom: 8,
+  },
+  skeletonLabel: {
+    opacity: 0.7,
+  },
+  circlesRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 16,
+    gap: 16,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  buttonsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  blueprintButton: {
+    flex: 1.4,
+  },
+  scheduleButton: {
+    flex: 1,
+  },
+  summaryPlaceholder: {
+    opacity: 0.5,
+  },
+  emptyMembers: {
+    opacity: 0.5,
+    marginTop: 4,
   },
   errorText: {
     color: "#B00020",
   },
+  smallCardHalf: {
+    flex: 1,
+  },
 });
-
