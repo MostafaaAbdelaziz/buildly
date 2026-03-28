@@ -4,6 +4,7 @@ import {
   inviteUserToSite,
   acceptInvite,
   rejectInvite,
+  removeSiteMember,
 } from "../services/siteMemberRepository";
 
 /**
@@ -83,5 +84,18 @@ export function useSiteMembers(inviter) {
     }
   }, []);
 
-  return { inviteByEmail, handleAccept, handleReject, loading, error };
+  const handleRemove = useCallback(async (membershipId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await removeSiteMember(membershipId);
+    } catch (err) {
+      setError(err.message || "Failed to remove member.");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { inviteByEmail, handleAccept, handleReject, handleRemove, loading, error };
 }
