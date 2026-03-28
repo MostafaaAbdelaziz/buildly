@@ -68,7 +68,6 @@ export function IssuesProvider({ children }) {
     })();
   }, [issues, trash, loaded]);
 
-  // ✅ optional: periodic cleanup (runs when app stays open)
   useEffect(() => {
     if (!loaded) return;
 

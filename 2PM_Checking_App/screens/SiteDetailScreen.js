@@ -300,11 +300,13 @@ export default function SiteDetailScreen({ navigation }) {
             )}
 
             {/* Members Section */}
-            <NeobrutalInfoCard variant="badge" accentColor="#16a34a">
-              <InfoSection title={`Members (${membersLoading ? "…" : members.length})`}>
-                {membersLoading ? (
-                  <ActivityIndicator style={{ marginTop: 8 }} />
-                ) : members.length === 0 ? (
+
+            {isManager && (
+              <NeobrutalInfoCard variant="badge" accentColor="#16a34a">
+                <InfoSection title={`Members (${membersLoading ? "…" : members.length})`}>
+                  {membersLoading ? (
+                    <ActivityIndicator style={{ marginTop: 8 }} />
+                  ) : members.length === 0 ? (
                   <AppText variant="caption" style={styles.emptyMembers}>
                     No active members yet.
                   </AppText>
@@ -318,8 +320,9 @@ export default function SiteDetailScreen({ navigation }) {
                     />
                   ))
                 )}
-              </InfoSection>
-            </NeobrutalInfoCard>
+                </InfoSection>
+              </NeobrutalInfoCard>
+            )}
           </>
         )}
       </ScrollView>
