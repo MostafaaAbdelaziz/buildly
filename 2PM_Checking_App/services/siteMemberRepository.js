@@ -102,6 +102,18 @@ export async function acceptInvite(membershipId, notificationId) {
 }
 
 /**
+ * Remove an active member from a site.
+ * Updates site_members → REMOVED.
+ */
+export async function removeSiteMember(membershipId) {
+  const memberRef = doc(firebase_fs, "site_members", membershipId);
+  await updateDoc(memberRef, {
+    status: "REMOVED",
+    resolvedAt: serverTimestamp(),
+  });
+}
+
+/**
  * Reject a site invitation.
  * Updates site_members → REJECTED and marks the notification read.
  */

@@ -25,33 +25,66 @@ export default function InviteMemberScreen({ navigation }) {
   const { user } = useAuth();
   const tabBarPadding = useTabBarPadding();
 
-  const { inviteByEmail, loading: inviting, error: inviteError } = useSiteMembers({
+  const { inviteByEmail, loading: inviting } = useSiteMembers({
     uid: user?.uid ?? "",
     name: user?.email ?? "",
   });
 
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [emailsText, setEmailsText] = useState("");
   const [inviteRole, setInviteRole] = useState(ROLES.FOREMAN);
-  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [resultMessage, setResultMessage] = useState(null);
+  const [isError, setIsError] = useState(false);
+
+  const parseEmails = (text) =>
+    text
+      .split(/[\n,]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
 
   const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
-    setInviteSuccess(false);
-    const result = await inviteByEmail({
-      siteId,
-      siteName,
-      email: inviteEmail.trim(),
-      role: inviteRole,
-    });
-    if (result === "ok") {
-      setInviteEmail("");
-      setInviteSuccess(true);
-      setTimeout(() => {
-        setInviteSuccess(false);
-        navigation.goBack();
-      }, 2000);
+    const emails = parseEmails(emailsText);
+    if (emails.length === 0) return;
+
+    setResultMessage(null);
+    setIsError(false);
+
+    let successes = 0;
+    let failures = [];
+
+    for (const email of emails) {
+      try {
+        const result = await inviteByEmail({ siteId, siteName, email, role: inviteRole });
+        if (result === "ok") {
+          successes++;
+        } else {
+          failures.push(`${email}: not found`);
+        }
+      } catch (err) {
+        failures.push(`${email}: ${err.message || "failed"}`);
+      }
+    }
+
+    if (failures.length === 0) {
+      setResultMessage(
+        `${successes} invitation${successes !== 1 ? "s" : ""} sent successfully!`
+      );
+      setIsError(false);
+      setEmailsText("");
+    } else if (successes === 0) {
+      setResultMessage(
+        `Failed to send invites:\n${failures.join("\n")}`
+      );
+      setIsError(true);
+    } else {
+      setResultMessage(
+        `${successes} sent successfully.\nFailed:\n${failures.join("\n")}`
+      );
+      setIsError(true);
     }
   };
+
+  const emails = parseEmails(emailsText);
+  const canSend = emails.length > 0 && !inviting;
 
   return (
     <Screen>
@@ -62,26 +95,35 @@ export default function InviteMemberScreen({ navigation }) {
       >
         <View style={styles.headerBlock}>
           <AppText variant="title" bold style={styles.title}>
-            INVITE MEMBER
+            INVITE MEMBERS
           </AppText>
           <AppText variant="body" style={styles.subtitle}>
             {siteName}
           </AppText>
           <AppText variant="caption" style={styles.description}>
-            Enter the email address of the person you want to invite to this site.
+            Enter one or more email addresses, separated by commas or new lines.
           </AppText>
         </View>
 
         <Card style={styles.formCard}>
           <ThemedTextInput
-            label="Email address"
-            placeholder="crew@example.com"
-            value={inviteEmail}
-            onChangeText={setInviteEmail}
+            label="Email addresses"
+            placeholder={"crew1@example.com\ncrew2@example.com, crew3@example.com"}
+            value={emailsText}
+            onChangeText={setEmailsText}
             autoCapitalize="none"
             keyboardType="email-address"
+            multiline
+            numberOfLines={6}
+            inputStyle={styles.multilineInput}
             style={styles.emailInput}
           />
+
+          {emails.length > 0 ? (
+            <AppText variant="caption" style={styles.emailCount}>
+              {emails.length} email{emails.length !== 1 ? "s" : ""} entered
+            </AppText>
+          ) : null}
 
           <AppText variant="caption" style={styles.roleLabel}>
             Role
@@ -100,31 +142,28 @@ export default function InviteMemberScreen({ navigation }) {
             ))}
           </View>
 
-          {inviteError ? (
-            <AppText variant="caption" style={styles.errorText}>
-              {inviteError}
-            </AppText>
-          ) : null}
-
-          {inviteSuccess ? (
-            <AppText variant="caption" style={styles.successText}>
-              Invitation sent! Returning to site...
+          {resultMessage ? (
+            <AppText
+              variant="caption"
+              style={[styles.resultText, isError ? styles.errorText : styles.successText]}
+            >
+              {resultMessage}
             </AppText>
           ) : null}
         </Card>
 
         <View style={styles.actions}>
           <Button
-            title="Send Invite"
+            title={inviting ? "Sending..." : `Send Invite${emails.length > 1 ? "s" : ""}`}
             variant="primary"
             tone="positive"
             onPress={handleInvite}
             loading={inviting}
-            disabled={inviting || !inviteEmail.trim()}
+            disabled={!canSend}
             fullWidth
           />
           <Button
-            title="Cancel"
+            title="Back"
             variant="secondary"
             onPress={() => navigation.goBack()}
             fullWidth
@@ -158,7 +197,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emailInput: {
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  multilineInput: {
+    minHeight: 120,
+    textAlignVertical: "top",
+    paddingTop: 14,
+  },
+  emailCount: {
+    opacity: 0.6,
+    marginBottom: 12,
   },
   roleLabel: {
     color: "#6b7280",
@@ -173,14 +221,15 @@ const styles = StyleSheet.create({
   roleChip: {
     minWidth: 90,
   },
+  resultText: {
+    marginTop: 8,
+    fontWeight: "700",
+  },
   errorText: {
     color: "#dc2626",
-    marginTop: 8,
   },
   successText: {
     color: "#16a34a",
-    fontWeight: "700",
-    marginTop: 8,
   },
   actions: {
     gap: 8,
