@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import MapView, { Marker } from "react-native-maps";
 import { useIssues } from "../context/IssuesContext";
 
@@ -26,6 +27,7 @@ function getIssueCoord(issue) {
 
 export default function MapScreen({ route, navigation }) {
   const { issues } = useIssues();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const mode = route?.params?.mode || "view"; // "view" | "pick"
   const initialLocation = route?.params?.initialLocation || null;
@@ -97,10 +99,14 @@ export default function MapScreen({ route, navigation }) {
 
       {mode === "pick" ? (
         <TouchableOpacity
-          style={[styles.fab, !picked && { opacity: 0.5 }]}
-          disabled={!picked}
-          onPress={confirmPick}
-        >
+  style={[
+    styles.fab,
+    { bottom: tabBarHeight + 38 },
+    !picked && { opacity: 0.5 },
+  ]}
+  disabled={!picked}
+  onPress={confirmPick}
+>
           <Text style={styles.fabText}>Use this location</Text>
         </TouchableOpacity>
       ) : null}
@@ -111,15 +117,14 @@ export default function MapScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
-  fab: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 18,
-    backgroundColor: "black",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
+ fab: {
+  position: "absolute",
+  left: 16,
+  right: 16,
+  backgroundColor: "black",
+  padding: 14,
+  borderRadius: 12,
+  alignItems: "center",
+},
   fabText: { color: "white", fontWeight: "900" },
 });
