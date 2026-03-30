@@ -234,11 +234,6 @@ export default function SiteDetailScreen({ navigation }) {
                   {site.status || "ACTIVE"}
                 </AppText>
               </View>
-              {site.description ? (
-                <AppText variant="body" style={styles.description}>
-                  {site.description}
-                </AppText>
-              ) : null}
             </View>
 
             <NeobrutalInfoCard variant="stacked">
@@ -307,8 +302,8 @@ export default function SiteDetailScreen({ navigation }) {
 
                 <NeobrutalInfoCard variant="stacked">
                   <InfoSection title="Summary">
-                    <AppText variant="body" style={styles.summaryPlaceholder}>
-                      —
+                    <AppText variant="body" style={styles.description}>
+                      {site.description || "No summary available for this site."}
                     </AppText>
                   </InfoSection>
                 </NeobrutalInfoCard>
