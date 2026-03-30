@@ -15,8 +15,8 @@ import { useActiveSiteMembers } from "../hooks/useActiveSiteMembers";
 import { useSiteMembers } from "../hooks/useSiteMembers";
 import { useAuth } from "../context/AuthContext";
 import { softDeleteSite } from "../services/siteRepository";
-import { colors } from "../constants/theme";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
+import { useSiteCurrentTask } from "../hooks/useSiteCurrentTask";
 
 const ROLE_LABELS = {
   FOREMAN: "Foreman",
@@ -24,6 +24,7 @@ const ROLE_LABELS = {
   SUBCONTRACTOR: "Sub",
   WORKER: "Worker",
 };
+
 
 function MemberRow({ member, onRemove, isManager }) {
   const { email, loading } = useUserEmail(member.userId);
@@ -120,6 +121,9 @@ export default function SiteDetailScreen({ navigation }) {
   const [deleting, setDeleting] = useState(false);
 
   const address = site?.address || {};
+
+  const { currentTask, loading: currentTaskLoading } = useSiteCurrentTask(siteId);
+
 
   const handleRemoveMember = (member) => {
     const displayName = member.email ?? member.userId;
@@ -258,7 +262,11 @@ export default function SiteDetailScreen({ navigation }) {
                   <NeobrutalSmallCard 
                     variant="stacked"
                     label="Current task"
-                    value={MOCK_TASK}
+                    value={
+                      currentTaskLoading
+                        ? "Loading..."
+                        : currentTask?.title || "No active tasks"
+                    }
                     style={styles.smallCardHalf}
                   />
                   <NeobrutalSmallCard 
