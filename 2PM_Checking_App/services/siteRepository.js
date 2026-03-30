@@ -13,6 +13,7 @@ export function buildSitePayload({
   cityState,
   description,
   startDate,
+  foremanEmail,
 }) {
   const trimmedName = (name || "").trim();
   if (!trimmedName) {
@@ -31,6 +32,10 @@ export function buildSitePayload({
     createdAt: now,
     updatedAt: now,
   };
+
+  if (foremanEmail && foremanEmail.trim()) {
+    payload.foremanEmail = foremanEmail.trim();
+  }
 
   const address = {
     line1: (addressLine1 || "").trim() || null,
@@ -56,6 +61,18 @@ export function buildSitePayload({
 export async function createSite(docData) {
   const ref = await addDoc(sitesCol(), docData);
   return ref;
+}
+
+export async function updateSiteForeman(siteId, foremanEmail) {
+  if (!siteId) {
+    throw new Error("siteId is required");
+  }
+  const siteRef = doc(firebase_fs, "sites", siteId);
+
+  await updateDoc(siteRef, {
+    foremanEmail: foremanEmail?.trim() || null,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function softDeleteSite(siteId) {

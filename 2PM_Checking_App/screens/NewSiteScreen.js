@@ -12,6 +12,7 @@ export default function NewSiteScreen({ route, navigation }) {
   const siteName = route?.params?.siteName || "New site";
   const { user, role } = useAuth();
   const tabBarPadding = useTabBarPadding();
+  const [foremanEmail, setForemanEmail] = useState("");
 
   const [addressLine1, setAddressLine1] = useState("");
   const [cityState, setCityState] = useState("");
@@ -37,6 +38,7 @@ export default function NewSiteScreen({ route, navigation }) {
         addressLine1,
         cityState,
         description,
+        foremanEmail: foremanEmail.trim() || undefined,
       });
       const ref = await createSite(payload);
       navigation.replace("SiteDetail", { siteId: ref.id });
@@ -95,6 +97,16 @@ export default function NewSiteScreen({ route, navigation }) {
             onChangeText={setDescription}
             style={styles.field}
             multiline
+          />
+
+          <ThemedTextInput
+            label="Foreman email"
+            placeholder="foreman@example.com"
+            value={foremanEmail}
+            onChangeText={setForemanEmail}
+            style={styles.field}
+            autoCapitalize="none"
+            keyboardType="email-address"
           />
 
           <View style={styles.actions}>

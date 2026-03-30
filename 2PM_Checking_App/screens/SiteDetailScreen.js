@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ActivityIndicator, ScrollView, Alert, TouchableOpacity } from "react-native";
+import { View, StyleSheet, ActivityIndicator, ScrollView, Alert, TouchableOpacity, Pressable } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
@@ -14,7 +14,7 @@ import { useUserEmail } from "../hooks/useUserEmail";
 import { useActiveSiteMembers } from "../hooks/useActiveSiteMembers";
 import { useSiteMembers } from "../hooks/useSiteMembers";
 import { useAuth } from "../context/AuthContext";
-import { softDeleteSite } from "../services/siteRepository";
+import { softDeleteSite, updateSiteForeman } from "../services/siteRepository";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import { useSiteCurrentTask } from "../hooks/useSiteCurrentTask";
 
@@ -24,7 +24,6 @@ const ROLE_LABELS = {
   SUBCONTRACTOR: "Sub",
   WORKER: "Worker",
 };
-
 
 function MemberRow({ member, onRemove, isManager }) {
   const { email, loading } = useUserEmail(member.userId);
@@ -103,7 +102,6 @@ const DEV_HAS_SCHEDULES = true;
 
 const MOCK_STATUS = "On Track";
 const MOCK_DAYS = 42;
-const MOCK_TASK = "Level 1 Drive All";
 const MOCK_FOREMAN = "Mr. Bob";
 
 export default function SiteDetailScreen({ navigation }) {
@@ -124,6 +122,28 @@ export default function SiteDetailScreen({ navigation }) {
 
   const { currentTask, loading: currentTaskLoading } = useSiteCurrentTask(siteId);
 
+
+  function handleEditForeman() {
+    Alert.prompt(
+      "Edit Foreman",
+      "Enter the foreman's email:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: async (value) => {
+            try {
+              await updateSiteForeman(siteId, value);
+            } catch (err) {
+              Alert.alert("Error", err.message || "Failed to update foreman.");
+            }
+          },
+        },
+      ],
+      "plain-text",
+      site?.foremanEmail || ""
+    );
+  }
 
   const handleRemoveMember = (member) => {
     const displayName = member.email ?? member.userId;
@@ -269,12 +289,20 @@ export default function SiteDetailScreen({ navigation }) {
                     }
                     style={styles.smallCardHalf}
                   />
-                  <NeobrutalSmallCard 
-                    variant="stacked"
-                    label="Foreman"
-                    value={MOCK_FOREMAN}
+                  <Pressable
+                    onPress={() => {
+                      if (!isManager) return;
+                      handleEditForeman();
+                    }}
                     style={styles.smallCardHalf}
-                  />
+                  >
+                    <NeobrutalSmallCard 
+                      variant="stacked"
+                      label="Foreman"
+                      value={site?.foremanEmail || "Unassigned"}
+                      style={styles.foremanPressableCard}
+                    />
+                  </Pressable>
                 </View>
 
                 <NeobrutalInfoCard variant="stacked">
