@@ -17,6 +17,7 @@ import { useAuth } from "../context/AuthContext";
 import { softDeleteSite, updateSiteForeman } from "../services/siteRepository";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import { useSiteCurrentTask } from "../hooks/useSiteCurrentTask";
+import { useIssues } from "../context/IssuesContext";
 
 const ROLE_LABELS = {
   FOREMAN: "Foreman",
@@ -100,9 +101,9 @@ const memberRowStyles = StyleSheet.create({
 
 const DEV_HAS_SCHEDULES = true;
 
+//TO BE DONE LEFT FOR SITE DASHBOARD
 const MOCK_STATUS = "On Track";
 const MOCK_DAYS = 42;
-const MOCK_FOREMAN = "Mr. Bob";
 
 export default function SiteDetailScreen({ navigation }) {
   const route = useRoute();
@@ -116,10 +117,8 @@ export default function SiteDetailScreen({ navigation }) {
 
   const { handleRemove } = useSiteMembers({ uid: user?.uid ?? "", name: user?.email ?? "" });
 
-  const [deleting, setDeleting] = useState(false);
-
+  const [setDeleting] = useState(false);
   const address = site?.address || {};
-
   const { currentTask, loading: currentTaskLoading } = useSiteCurrentTask(siteId);
 
 
@@ -327,6 +326,17 @@ export default function SiteDetailScreen({ navigation }) {
                     style={styles.scheduleButton}
                   />
                 </View>
+                 <Button
+                    variant="secondary"
+                    title= "Issues"
+                    onPress={() =>
+                      navigation.navigate("Issues", {
+                        siteId,
+                        siteName: site.name,
+                      })
+                    }
+                    style={styles.scheduleButton}
+                  />
               </>
             )}
 

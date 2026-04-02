@@ -22,6 +22,7 @@ import TrashScreen from "./screens/TrashScreen";
 import TwoPMCheckScreen from "./screens/TwoPMCheckScreen";
 import DrawingDetailScreen from "./screens/DrawingDetailScreen";
 import DrawingsScreen from "./screens/DrawingsScreen";
+import IssuesScreen from "./screens/IssuesScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +49,7 @@ export default function App() {
               <Stack.Screen name="2PMCheck" component={TwoPMCheckScreen} options={{ title: "2PM Check" }} />
               <Stack.Screen name="DrawingDetail" component={DrawingDetailScreen} options={{ title: "Drawing Detail" }} />
               <Stack.Screen name="SiteDrawings" component={DrawingsScreen} options={{ title: "Drawings" }} />
+              <Stack.Screen name="Issues" component={IssuesScreen} options={{ title: "Issues" }} />
             </Stack.Navigator>
           </NavigationContainer>
         </ScheduleProvider>

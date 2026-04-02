@@ -86,3 +86,26 @@ export async function softDeleteSite(siteId) {
     updatedAt: serverTimestamp(),
   });
 }
+
+export async function createIssueForSite(issueData) {
+  const siteRef = await addDoc(collection(firebase_fs, "issues"), {
+    ...issueData,
+    status : issueData.status || "Open",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return siteRef;
+}
+
+export async function updateIssueStatus(issueId, status) {
+  if (!issueId) {
+    throw new Error("issueId is required");
+  }
+
+  const issueRef = doc(firebase_fs, "issues", issueId);
+
+  await updateDoc(issueRef, {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}

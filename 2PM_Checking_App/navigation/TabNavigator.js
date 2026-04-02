@@ -2,14 +2,12 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import DashboardStack from "./DashboardStack";
-import IssuesScreen from "../screens/IssuesScreen";
 import MapScreen from "../screens/MapScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import GanttChartScreen from "../screens/GanttChartScreen";
 import FloatingTabBar from "../components/FloatingTabBar";
 import {
   DashboardIcon,
-  IssuesIcon,
   ScheduleIcon,
   MapIcon,
   ProfileIcon,
@@ -28,13 +26,6 @@ export default function TabsNavigator() {
         component={DashboardStack}
         options={{
           tabBarIcon: ({ color }) => <DashboardIcon color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Issues"
-        component={IssuesScreen}
-        options={{
-          tabBarIcon: ({ color }) => <IssuesIcon color={color} />,
         }}
       />
       <Tab.Screen
