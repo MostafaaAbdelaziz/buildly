@@ -13,6 +13,7 @@ import {
   ROW_HEIGHT,
   ROW_GAP,
   HEADER_HEIGHT,
+  PHASE_HEADER_HEIGHT,
   BUFFER_DAYS,
   DAY_WIDTH_MIN,
   DAY_WIDTH_MAX,
@@ -20,7 +21,6 @@ import {
   DAYS_PER_VIEW,
 } from "./constants";
 import { addDays, daysBetween, parseDate } from "./dateUtils";
-import { MOCK_TASKS } from "./mockData";
 import { ViewSwitcher } from "./ViewSwitcher";
 import { TimelineHeader } from "./TimelineHeader";
 import { GridLines } from "./GridLines";
@@ -33,11 +33,20 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 const GANTT_HEADER_H = 56;
 
-export default function GanttChart({ title = "TIMELINE", tasks = MOCK_TASKS }) {
+function collectTasksForRange(tasks, phaseGroups) {
+  if (phaseGroups && phaseGroups.length > 0) {
+    return phaseGroups.flatMap((g) => g.tasks);
+  }
+  return tasks;
+}
+
+export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups }) {
   const [viewMode, setViewMode] = useState("Day");
   const [dayWidth, setDayWidth] = useState(DEFAULT_DAY_WIDTH);
   const [bodyHeight, setBodyHeight] = useState(0);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const seenPhaseIdsRef = useRef(new Set());
   const leftScrollRef = useRef(null);
   const rightScrollRef = useRef(null);
   const horizontalScrollRef = useRef(null);
@@ -47,19 +56,90 @@ export default function GanttChart({ title = "TIMELINE", tasks = MOCK_TASKS }) {
   const scrollXRef = useRef(0);
   const pendingCenterDayRef = useRef(null);
 
+  const usePhaseMode = phaseGroups && phaseGroups.length > 0;
+
+  useEffect(() => {
+    if (!usePhaseMode || !phaseGroups.length) return;
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      phaseGroups.forEach((g) => {
+        if (!seenPhaseIdsRef.current.has(g.phaseId)) {
+          seenPhaseIdsRef.current.add(g.phaseId);
+          next.add(g.phaseId);
+        }
+      });
+      return next;
+    });
+  }, [usePhaseMode, phaseGroups]);
+
+  const togglePhase = useCallback((phaseId) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(phaseId)) next.delete(phaseId);
+      else next.add(phaseId);
+      return next;
+    });
+  }, []);
+
+  const { layoutRows, totalHeight, barPlacements } = useMemo(() => {
+    if (!usePhaseMode) {
+      const th = tasks.length * (ROW_HEIGHT + ROW_GAP);
+      const bars = tasks.map((task, idx) => ({
+        task,
+        top: idx * (ROW_HEIGHT + ROW_GAP) + ROW_GAP / 2,
+      }));
+      return { layoutRows: null, totalHeight: th, barPlacements: bars };
+    }
+
+    const leftRows = [];
+    const bars = [];
+    let y = 0;
+
+    phaseGroups.forEach((g) => {
+      const expanded = expandedIds.has(g.phaseId);
+      leftRows.push({ type: "phase", phaseId: g.phaseId, phaseName: g.phaseName, expanded });
+
+      y += ROW_GAP + PHASE_HEADER_HEIGHT;
+
+      if (expanded) {
+        g.tasks.forEach((task) => {
+          leftRows.push({ type: "task", task });
+          y += ROW_GAP;
+          bars.push({
+            task,
+            top: y + ROW_GAP / 2,
+          });
+          y += ROW_HEIGHT;
+        });
+      }
+    });
+
+    return {
+      layoutRows: leftRows,
+      totalHeight: y,
+      barPlacements: bars,
+    };
+  }, [usePhaseMode, phaseGroups, tasks, expandedIds]);
+
   const today = useMemo(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }, []);
 
+  const rangeTasks = useMemo(
+    () => collectTasksForRange(tasks, phaseGroups),
+    [tasks, phaseGroups]
+  );
+
   const { timelineStart, totalDays } = useMemo(() => {
-    if (!tasks.length) {
+    if (!rangeTasks.length) {
       const start = addDays(today, -BUFFER_DAYS);
       return { timelineStart: start, totalDays: BUFFER_DAYS * 2 };
     }
-    let minDate = parseDate(tasks[0].startDate);
-    let maxDate = parseDate(tasks[0].endDate);
-    for (const t of tasks) {
+    let minDate = parseDate(rangeTasks[0].startDate);
+    let maxDate = parseDate(rangeTasks[0].endDate);
+    for (const t of rangeTasks) {
       const s = parseDate(t.startDate);
       const e = parseDate(t.endDate);
       if (s < minDate) minDate = s;
@@ -68,13 +148,12 @@ export default function GanttChart({ title = "TIMELINE", tasks = MOCK_TASKS }) {
     const start = addDays(minDate, -BUFFER_DAYS);
     const end = addDays(maxDate, BUFFER_DAYS);
     return { timelineStart: start, totalDays: daysBetween(start, end) };
-  }, [tasks, today]);
+  }, [rangeTasks, today]);
 
   const todayOffset = useMemo(() => {
     return daysBetween(timelineStart, today) * dayWidth;
   }, [timelineStart, today, dayWidth]);
 
-  const totalHeight = tasks.length * (ROW_HEIGHT + ROW_GAP);
   const timelineWidth = totalDays * dayWidth;
   const scrollAreaHeight = bodyHeight > 0 ? bodyHeight - GANTT_HEADER_H : 300;
 
@@ -159,6 +238,44 @@ export default function GanttChart({ title = "TIMELINE", tasks = MOCK_TASKS }) {
     scrollingSource.current = null;
   }, []);
 
+  const chartHeight = totalHeight + ROW_GAP;
+
+  const renderLeftColumn = () => {
+    if (usePhaseMode && layoutRows) {
+      return layoutRows.map((row) => {
+        if (row.type === "phase") {
+          return (
+            <TouchableOpacity
+              key={`p-${row.phaseId}`}
+              activeOpacity={0.7}
+              onPress={() => togglePhase(row.phaseId)}
+              style={styles.phaseNameRow}
+            >
+              <Text style={styles.phaseChevron}>{row.expanded ? "▼" : "▶"}</Text>
+              <Text style={styles.phaseNameText} numberOfLines={2}>
+                {row.phaseName}
+              </Text>
+            </TouchableOpacity>
+          );
+        }
+        return (
+          <View key={row.task.id} style={styles.taskNameRow}>
+            <Text style={styles.taskNameText} numberOfLines={1}>
+              {row.task.name}
+            </Text>
+          </View>
+        );
+      });
+    }
+    return tasks.map((task) => (
+      <View key={task.id} style={styles.taskNameRow}>
+        <Text style={styles.taskNameText} numberOfLines={1}>
+          {task.name}
+        </Text>
+      </View>
+    ));
+  };
+
   return (
     <View
       style={styles.container}
@@ -181,13 +298,7 @@ export default function GanttChart({ title = "TIMELINE", tasks = MOCK_TASKS }) {
               onScrollEndDrag={handleScrollEnd}
               style={{ height: scrollAreaHeight - HEADER_HEIGHT }}
             >
-              {tasks.map((task) => (
-                <View key={task.id} style={styles.taskNameRow}>
-                  <Text style={styles.taskNameText} numberOfLines={1}>
-                    {task.name}
-                  </Text>
-                </View>
-              ))}
+              {renderLeftColumn()}
               <View style={{ height: ROW_GAP }} />
             </ScrollView>
           </View>
@@ -221,14 +332,13 @@ export default function GanttChart({ title = "TIMELINE", tasks = MOCK_TASKS }) {
                     nestedScrollEnabled
                     style={{ height: scrollAreaHeight - HEADER_HEIGHT }}
                   >
-                    <View style={[styles.barsContainer, { width: timelineWidth, height: totalHeight + ROW_GAP }]}>
-                      <GridLines totalDays={totalDays} totalHeight={totalHeight + ROW_GAP} viewMode={viewMode} dayWidth={dayWidth} />
-                      {tasks.map((task, idx) => {
+                    <View style={[styles.barsContainer, { width: timelineWidth, height: chartHeight }]}>
+                      <GridLines totalDays={totalDays} totalHeight={chartHeight} viewMode={viewMode} dayWidth={dayWidth} />
+                      {barPlacements.map(({ task, top }) => {
                         const startOffset = daysBetween(timelineStart, parseDate(task.startDate));
                         const duration = daysBetween(parseDate(task.startDate), parseDate(task.endDate));
                         const left = startOffset * dayWidth;
                         const width = Math.max(duration * dayWidth, dayWidth);
-                        const top = idx * (ROW_HEIGHT + ROW_GAP) + ROW_GAP / 2;
                         return (
                           <View
                             key={task.id}
@@ -240,8 +350,8 @@ export default function GanttChart({ title = "TIMELINE", tasks = MOCK_TASKS }) {
                         );
                       })}
                       {todayOffset >= 0 && todayOffset <= timelineWidth && (
-                        <View style={[styles.todayLineContainer, { left: todayOffset, height: totalHeight + ROW_GAP }]}>
-                          <TodayLine height={totalHeight + ROW_GAP} />
+                        <View style={[styles.todayLineContainer, { left: todayOffset, height: chartHeight }]}>
+                          <TodayLine height={chartHeight} />
                         </View>
                       )}
                     </View>

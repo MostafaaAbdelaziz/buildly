@@ -24,8 +24,6 @@ export default function LoginScreen({ navigation }) {
 
       // Navigate (role will also be available via AuthContext if you use it)
       navigation.replace("Tabs", { role });
-
-      alert(`Signed in as ${role}: ${email.trim()}`);
     } catch (error) {
       console.log(error.message);
       alert(error.message);

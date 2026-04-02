@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -62,6 +62,36 @@ function derivePhaseDates(tasks) {
   return `${formatDate(start) || "—"}  →  ${formatDate(end) || "—"}`;
 }
 
+/** Calendar add for YYYY-MM-DD strings */
+function addDaysISO(iso, delta) {
+  if (!iso || typeof iso !== "string") return null;
+  const parts = iso.split("-").map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + delta);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+}
+
+/** Latest end among tasks (uses endDate, else startDate for single-day / legacy). */
+function maxEndDateAmongTasks(tasks) {
+  let max = null;
+  for (const t of tasks) {
+    const end = t.endDate || t.startDate;
+    if (!end) continue;
+    if (!max || end > max) max = end;
+  }
+  return max;
+}
+
+/** First day after the latest task end (for chaining new tasks). */
+function nextStartAfterTasks(tasks) {
+  const max = maxEndDateAmongTasks(tasks);
+  if (!max) return null;
+  return addDaysISO(max, 1);
+}
+
 // ─── StatusBadge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
@@ -108,21 +138,58 @@ function StatusPicker({ value, onChange }) {
 
 // ─── AddTaskForm ──────────────────────────────────────────────────────────────
 
-function AddTaskForm({ onSave, onCancel }) {
-  const [title, setTitle]           = useState("");
-  const [description, setDesc]      = useState("");
-  const [startDate, setStartDate]   = useState("");
-  const [endDate, setEndDate]       = useState("");
-  const [status, setStatus]         = useState("PENDING");
+function AddTaskForm({ onSave, onCancel, existingTasks = [] }) {
+  const [title, setTitle] = useState("");
+  const [description, setDesc] = useState("");
+  const [durationDays, setDurationDays] = useState("1");
+  const [startDate, setStartDate] = useState("");
+  const [status, setStatus] = useState("PENDING");
   const [assignedTo, setAssignedTo] = useState("");
-  const [showMore, setShowMore]     = useState(false);
-  const [saving, setSaving]         = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const isFirstTask = existingTasks.length === 0;
+  const chainStart = useMemo(() => nextStartAfterTasks(existingTasks), [existingTasks]);
+  const needsManualStart = isFirstTask || !chainStart;
 
   async function handleSave() {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      Alert.alert("Missing info", "Please enter a task title.");
+      return;
+    }
+    const n = parseInt(String(durationDays).trim(), 10);
+    if (Number.isNaN(n) || n < 1) {
+      Alert.alert("Missing info", "Please enter a number of days (1 or more).");
+      return;
+    }
+
+    let resolvedStart;
+    if (needsManualStart) {
+      if (!startDate?.trim()) {
+        Alert.alert("Missing info", "Please pick a start date.");
+        return;
+      }
+      resolvedStart = startDate.trim();
+    } else {
+      resolvedStart = chainStart;
+    }
+
+    const endDate = addDaysISO(resolvedStart, n - 1);
+    if (!endDate) {
+      Alert.alert("Error", "Could not compute the end date. Check the start date.");
+      return;
+    }
+
     setSaving(true);
     try {
-      await onSave({ title, description, startDate, endDate, status, assignedTo });
+      await onSave({
+        title,
+        description,
+        startDate: resolvedStart,
+        endDate,
+        status,
+        assignedTo,
+      });
     } finally {
       setSaving(false);
     }
@@ -137,12 +204,35 @@ function AddTaskForm({ onSave, onCancel }) {
         placeholder="e.g., Clear brush and debris"
         autoFocus
         returnKeyType="done"
-        onSubmitEditing={showMore ? undefined : handleSave}
       />
+
+      <ThemedTextInput
+        label="Number of days (required)"
+        value={durationDays}
+        onChangeText={setDurationDays}
+        placeholder="e.g., 5"
+        keyboardType="number-pad"
+        returnKeyType="done"
+      />
+
+      {needsManualStart ? (
+        <DatePickerInput
+          label="Start date (required)"
+          value={startDate}
+          onChange={setStartDate}
+          placeholder="Pick start date"
+        />
+      ) : (
+        <View style={s.chainHint}>
+          <AppText variant="caption" style={s.chainHintText}>
+            Starts: {chainStart} (day after latest task end)
+          </AppText>
+        </View>
+      )}
 
       <Pressable onPress={() => setShowMore((v) => !v)} style={s.moreToggle}>
         <AppText variant="caption" style={s.moreToggleText}>
-          {showMore ? "▼  Hide details" : "▶  Add details (dates, status, notes)"}
+          {showMore ? "▼  Hide details" : "▶  Add details (description, status, assignee)"}
         </AppText>
       </Pressable>
 
@@ -156,26 +246,6 @@ function AddTaskForm({ onSave, onCancel }) {
             multiline
             inputStyle={{ minHeight: 72, textAlignVertical: "top" }}
           />
-
-          <View style={s.dateRow}>
-            <View style={s.dateField}>
-              <DatePickerInput
-                label="Start date"
-                value={startDate}
-                onChange={setStartDate}
-                placeholder="Pick start date"
-              />
-            </View>
-            <View style={s.dateSpacer} />
-            <View style={s.dateField}>
-              <DatePickerInput
-                label="End date"
-                value={endDate}
-                onChange={setEndDate}
-                placeholder="Pick end date"
-              />
-            </View>
-          </View>
 
           <AppText variant="body" bold style={s.fieldLabel}>
             Status
@@ -194,7 +264,7 @@ function AddTaskForm({ onSave, onCancel }) {
 
       <View style={s.inlineActions}>
         <Button title="Save Task" variant="primary" size="sm" onPress={handleSave} loading={saving} />
-        <Button title="Cancel"    variant="secondary" size="sm" onPress={onCancel} disabled={saving} />
+        <Button title="Cancel" variant="secondary" size="sm" onPress={onCancel} disabled={saving} />
       </View>
     </View>
   );
@@ -568,6 +638,7 @@ function PhaseRow({ phase, siteId, onUpdate, onDelete, isManager }) {
               {isManager && (
                 addingTask ? (
                   <AddTaskForm
+                    existingTasks={tasks}
                     onSave={async (taskData) => {
                       await addTask(taskData);
                       setAddingTask(false);
@@ -877,6 +948,7 @@ function AdHocTasksSection({ siteId, isManager }) {
               {isManager && (
                 addingTask ? (
                   <AddTaskForm
+                    existingTasks={tasks}
                     onSave={async (taskData) => {
                       await addTask(taskData);
                       setAddingTask(false);
@@ -1083,6 +1155,16 @@ const s = StyleSheet.create({
 
   // Add task form
   addTaskForm: { marginTop: 6, marginBottom: 8 },
+  chainHint: {
+    backgroundColor: colors.neutral,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.neutralBorder,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+  },
+  chainHintText: { fontWeight: "700", opacity: 0.85 },
   moreToggle:     { paddingVertical: 6, marginBottom: 4 },
   moreToggleText: { color: colors.primary, fontWeight: "700" },
   moreFields:     { marginTop: 4 },

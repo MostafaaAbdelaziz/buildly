@@ -46,7 +46,7 @@ export default function App() {
               <Stack.Screen name="CreateSchedule" component={CreateScheduleScreen} options={{ title: "Create Schedule" }} />
               <Stack.Screen name="ScheduleDetail" component={ScheduleDetailScreen} options={{ title: "Schedule Detail" }} />
               <Stack.Screen name="SiteSchedules" component={SiteSchedulesScreen} options={{ title: "Schedules" }} />
-              <Stack.Screen name="2PMCheck" component={TwoPMCheckScreen} options={{ title: "2PM Check" }} />
+              <Stack.Screen name="2PMCheck" component={TwoPMCheckScreen} options={{ headerShown: false }} />
               <Stack.Screen name="DrawingDetail" component={DrawingDetailScreen} options={{ title: "Drawing Detail" }} />
               <Stack.Screen name="SiteDrawings" component={DrawingsScreen} options={{ title: "Drawings" }} />
               <Stack.Screen name="Issues" component={IssuesScreen} options={{ title: "Issues" }} />

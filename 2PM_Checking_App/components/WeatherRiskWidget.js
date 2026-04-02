@@ -28,6 +28,18 @@ function messageFromCode(weatherCode) {
   return "Weather conditions available for site planning.";
 }
 
+function iconFromCode(weatherCode) {
+  const code = Number(weatherCode || 0);
+
+  if ([95, 96, 99].includes(code)) return "⛈️";
+  if ([61, 63, 65, 80, 81, 82].includes(code)) return "🌧️";
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return "❄️";
+  if ([45, 48].includes(code)) return "🌫️";
+  if ([0, 1].includes(code)) return "☀️";
+  if ([2, 3].includes(code)) return "☁️";
+  return "🌤️";
+}
+
 export default function WeatherRiskWidget() {
   const [collapsed, setCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,7 +51,9 @@ export default function WeatherRiskWidget() {
       `https://api.open-meteo.com/v1/forecast` +
       `?latitude=${latitude}&longitude=${longitude}` +
       `&current=temperature_2m,precipitation,wind_speed_10m,weather_code` +
-      `&temperature_unit=celsius&wind_speed_unit=kmh&precipitation_unit=mm`;
+      `&daily=weather_code` +
+      `&temperature_unit=celsius&wind_speed_unit=kmh&precipitation_unit=mm` +
+      `&timezone=auto`;
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -49,12 +63,17 @@ export default function WeatherRiskWidget() {
 
     const data = await res.json();
     const current = data?.current;
+    const daily = data?.daily;
 
     return {
       temp: Math.round(current?.temperature_2m ?? 0),
       precipitation: Number(current?.precipitation ?? 0),
       windKmh: Number(current?.wind_speed_10m ?? 0),
       weatherCode: Number(current?.weather_code ?? 0),
+      daily: daily?.time?.map((t, i) => ({
+        date: t,
+        weatherCode: daily?.weather_code?.[i]
+      })) || []
     };
   }
 
@@ -126,20 +145,35 @@ export default function WeatherRiskWidget() {
               </TouchableOpacity>
             </>
           ) : (
-            <View style={styles.weatherRow}>
-              <Text style={styles.icon}>🌦️</Text>
+            <View>
+              <View style={styles.weatherRow}>
+                <Text style={styles.icon}>{iconFromCode(wx?.weatherCode)}</Text>
 
-              <View style={{ flex: 1 }}>
-                <View style={styles.tempRow}>
-                  <Text style={styles.temp}>{wx?.temp}°</Text>
-                  <Text style={styles.risk}>{risk}</Text>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.tempRow}>
+                    <Text style={styles.temp}>{wx?.temp}°</Text>
+                    <Text style={styles.risk}>{risk}</Text>
+                  </View>
+
+                  <Text style={styles.subtitle}>{hint}</Text>
+
+                  <Text style={styles.details}>
+                    Wind: {Math.round(wx?.windKmh)} km/h • Precip: {wx?.precipitation} mm
+                  </Text>
                 </View>
+              </View>
 
-                <Text style={styles.subtitle}>{hint}</Text>
-
-                <Text style={styles.details}>
-                  Wind: {Math.round(wx?.windKmh)} km/h • Precip: {wx?.precipitation} mm
-                </Text>
+              <View style={styles.forecastRow}>
+                {wx?.daily?.map((day, idx) => {
+                  const d = new Date(day.date + "T12:00:00Z");
+                  const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+                  return (
+                    <View key={idx} style={styles.forecastDay}>
+                      <Text style={styles.forecastIcon}>{iconFromCode(day.weatherCode)}</Text>
+                      <Text style={styles.forecastDate}>{dayName}</Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
           )}
@@ -195,4 +229,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#ECECEC",
   },
   retryText: { fontWeight: "900", color: "#222" },
+
+  forecastRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#EEE",
+  },
+  forecastDay: {
+    alignItems: "center",
+  },
+  forecastIcon: {
+    fontSize: 22,
+    marginBottom: 6,
+  },
+  forecastDate: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#777",
+  },
 });

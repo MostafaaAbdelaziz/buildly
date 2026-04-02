@@ -77,12 +77,13 @@ Two reference screens. **New screens should copy one of these unless there’s a
 
 ### 5.1 Daily 2 p.m. check-in screen
 
+- **Implementation:** `screens/TwoPMCheckScreen.js` — uses **Screen**, **AppText** (title / body / caption only), **Button** (`primary` + `tone` positive/negative for Ready / Not ready; `secondary` for photo), and **Card** (accent border for reminders). Stack header is hidden; in-screen header row = back, brand **Bob**, **2:00 PM** right.
 - **Header:** Logo/brand left, “2:00 PM” (or current check-in time) right.
-- **Main content:** One clear question (e.g. “Is the site ready?”) with optional short illustration or icon.
-- **Primary actions:** Two big buttons — READY (primary color) and NOT READY (accent color). Full-width, equal weight, impossible to miss.
-- **Secondary action:** One secondary button below (e.g. “Confirm readiness” with camera). Tappable but visually secondary.
-- **Reminder/info:** One Card with optional accent border (e.g. “Check-in due at 2:00 PM”).
-- **Errors/feedback:** Use AppText + accent color for messages; keep them near the relevant control or at top of content.
+- **Main content:** One clear question (“Is the site ready?”) with optional short illustration or icon (emoji block).
+- **Primary actions:** Two large **Button**s — **Ready** (`primary`, positive tone) and **Not ready** (`primary`, negative tone). Full-width, equal weight.
+- **Secondary action:** **Confirm with photo** (`secondary`) — opens issue flow with photo; visually below primaries.
+- **Reminder/info:** One **Card** with accent border for check-in window / next steps copy.
+- **Errors/feedback:** **AppText** + theme **accent** where emphasis is needed; keep near the relevant control or inside **Card**.
 
 ### 5.2 Issue form / Issue detail screen
 
