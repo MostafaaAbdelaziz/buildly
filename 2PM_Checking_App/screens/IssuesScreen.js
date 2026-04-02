@@ -8,16 +8,19 @@ import Button from "../components/Button";
 import Card from "../components/Card";
 import { colors } from "../constants/theme";
 
-export default function IssuesScreen({ navigation }) {
+export default function IssuesScreen({ navigation, route }) {
   const { issues, trash, clearTrash } = useIssues();
+  const siteId = route?.params?.siteId || null;
+  const siteName = route?.params?.siteName || "Site";
   const { role } = useAuth();
   const [tab, setTab] = useState("current");
   const isManager = role === "manager";
 
-  const currentIssues = issues.filter((issue) => issue.status?.toLowerCase() !== "closed");
-  const closedIssues = issues.filter((issue) => issue.status?.toLowerCase() === "closed");
-
-  const data = tab === "current" ? currentIssues : [...closedIssues, ...trash];
+  const siteIssues = issues.filter((issue) => (issue?.siteId || null) === siteId);
+  const siteTrash = trash.filter((issue) => (issue?.siteId || null) === siteId);
+  const currentIssues = siteIssues.filter((issue) => issue.status?.toLowerCase() !== "closed");
+  const closedIssues = siteIssues.filter((issue) => issue.status?.toLowerCase() === "closed");
+  const data = tab === "current" ? currentIssues : [...closedIssues, ...siteTrash];
 
   function confirmEmptyTrash() {
     if (!isManager) {
@@ -98,27 +101,32 @@ export default function IssuesScreen({ navigation }) {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <AppText variant="title" bold>Issues</AppText>
-        <Button
-          variant="primary"
-          tone="positive"
-          title="+ Add"
-          onPress={() => navigation.navigate("CreateIssue")}
-          size="sm"
-        />
-      </View>
-
-      {isManager && trash.length > 0 && (
+      {isManager && siteTrash.length > 0 && (
         <Button
           variant="tertiary"
           tone="negative"
-          title={`Empty Trash (${trash.length})`}
+          title={`Empty Trash (${siteTrash.length})`}
           onPress={confirmEmptyTrash}
           fullWidth
           style={styles.emptyTrashBtn}
         />
       )}
+      
+      <View style={styles.header}>
+        <AppText variant="title" bold>{siteName}</AppText>
+        <Button
+          variant="primary"
+          tone="positive"
+          title="+ Add"
+          onPress={() =>
+            navigation.navigate("CreateIssue", {
+              siteId,
+              siteName,
+            })
+          }
+          size="sm"
+        />
+      </View>
 
       <View style={styles.tabs}>
         <TouchableOpacity
@@ -145,7 +153,7 @@ export default function IssuesScreen({ navigation }) {
             bold
             style={[styles.tabText, tab === "closed" && styles.activeTabText]}
           >
-            Closed ({closedIssues.length + trash.length})
+            Closed ({closedIssues.length + siteTrash.length})
           </AppText>
         </TouchableOpacity>
       </View>

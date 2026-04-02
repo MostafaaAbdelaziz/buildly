@@ -13,6 +13,7 @@ export function buildSitePayload({
   cityState,
   description,
   startDate,
+  foremanEmail,
 }) {
   const trimmedName = (name || "").trim();
   if (!trimmedName) {
@@ -31,6 +32,10 @@ export function buildSitePayload({
     createdAt: now,
     updatedAt: now,
   };
+
+  if (foremanEmail && foremanEmail.trim()) {
+    payload.foremanEmail = foremanEmail.trim();
+  }
 
   const address = {
     line1: (addressLine1 || "").trim() || null,
@@ -58,6 +63,18 @@ export async function createSite(docData) {
   return ref;
 }
 
+export async function updateSiteForeman(siteId, foremanEmail) {
+  if (!siteId) {
+    throw new Error("siteId is required");
+  }
+  const siteRef = doc(firebase_fs, "sites", siteId);
+
+  await updateDoc(siteRef, {
+    foremanEmail: foremanEmail?.trim() || null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function softDeleteSite(siteId) {
   if (!siteId) {
     throw new Error("siteId is required");
@@ -66,6 +83,29 @@ export async function softDeleteSite(siteId) {
   await updateDoc(siteRef, {
     deleted: true,
     deletedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function createIssueForSite(issueData) {
+  const siteRef = await addDoc(collection(firebase_fs, "issues"), {
+    ...issueData,
+    status : issueData.status || "Open",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return siteRef;
+}
+
+export async function updateIssueStatus(issueId, status) {
+  if (!issueId) {
+    throw new Error("issueId is required");
+  }
+
+  const issueRef = doc(firebase_fs, "issues", issueId);
+
+  await updateDoc(issueRef, {
+    status,
     updatedAt: serverTimestamp(),
   });
 }

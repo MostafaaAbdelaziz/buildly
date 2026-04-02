@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const IssuesContext = createContext(null);
 
 // ✅ bump version so old storage doesn't break if needed
-const STORAGE_KEY = "issues_v3";
+const STORAGE_KEY = "issues_v4";
 
 // how long deleted issues stay in trash (7 days)
 const TRASH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -37,8 +37,15 @@ export function IssuesProvider({ children }) {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          const loadedIssues = sanitizeArray(parsed?.issues);
-          const loadedTrash = sanitizeArray(parsed?.trash);
+          const loadedIssues = sanitizeArray(parsed?.issues).map((item) => ({
+            siteId: null,
+            ...item,
+          }));
+
+          const loadedTrash = sanitizeArray(parsed?.trash).map((item) => ({
+            siteId: null,
+            ...item,
+          }));
 
           // cleanup trash on load
           const cutoff = now() - TRASH_TTL_MS;
@@ -68,7 +75,6 @@ export function IssuesProvider({ children }) {
     })();
   }, [issues, trash, loaded]);
 
-  // ✅ optional: periodic cleanup (runs when app stays open)
   useEffect(() => {
     if (!loaded) return;
 
@@ -80,13 +86,14 @@ export function IssuesProvider({ children }) {
     return () => clearInterval(interval);
   }, [loaded]);
 
-  function addIssue({ title, priority, description, image, location, createdBy }) {
+  function addIssue({ id, siteId, title, priority, description, image, location, createdBy, status }) {
   const newIssue = {
-    id: `${now()}_${Math.random().toString(16).slice(2)}`,
+    siteId : siteId || null,
+      id: id || `${now()}_${Math.random().toString(16).slice(2)}`,
     title: (title || "").trim(),
     description: (description || "").trim(),
     image: image || null,
-    status: "Open",
+    status: (status || "Open").trim(),
     priority: (priority || "Medium").trim(),
     createdAt: new Date().toLocaleString(),
     createdAtTs: now(),

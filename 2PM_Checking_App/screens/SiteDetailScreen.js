@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ActivityIndicator, ScrollView, Alert, TouchableOpacity } from "react-native";
+import { View, StyleSheet, ActivityIndicator, ScrollView, Alert, TouchableOpacity, Pressable } from "react-native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
@@ -14,9 +14,10 @@ import { useUserEmail } from "../hooks/useUserEmail";
 import { useActiveSiteMembers } from "../hooks/useActiveSiteMembers";
 import { useSiteMembers } from "../hooks/useSiteMembers";
 import { useAuth } from "../context/AuthContext";
-import { softDeleteSite } from "../services/siteRepository";
-import { colors } from "../constants/theme";
+import { softDeleteSite, updateSiteForeman } from "../services/siteRepository";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
+import { useSiteCurrentTask } from "../hooks/useSiteCurrentTask";
+import { useIssues } from "../context/IssuesContext";
 
 const ROLE_LABELS = {
   FOREMAN: "Foreman",
@@ -100,10 +101,9 @@ const memberRowStyles = StyleSheet.create({
 
 const DEV_HAS_SCHEDULES = true;
 
+//TO BE DONE LEFT FOR SITE DASHBOARD
 const MOCK_STATUS = "On Track";
 const MOCK_DAYS = 42;
-const MOCK_TASK = "Level 1 Drive All";
-const MOCK_FOREMAN = "Mr. Bob";
 
 export default function SiteDetailScreen({ navigation }) {
   const route = useRoute();
@@ -117,9 +117,32 @@ export default function SiteDetailScreen({ navigation }) {
 
   const { handleRemove } = useSiteMembers({ uid: user?.uid ?? "", name: user?.email ?? "" });
 
-  const [deleting, setDeleting] = useState(false);
-
+  const [setDeleting] = useState(false);
   const address = site?.address || {};
+  const { currentTask, loading: currentTaskLoading } = useSiteCurrentTask(siteId);
+
+
+  function handleEditForeman() {
+    Alert.prompt(
+      "Edit Foreman",
+      "Enter the foreman's email:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: async (value) => {
+            try {
+              await updateSiteForeman(siteId, value);
+            } catch (err) {
+              Alert.alert("Error", err.message || "Failed to update foreman.");
+            }
+          },
+        },
+      ],
+      "plain-text",
+      site?.foremanEmail || ""
+    );
+  }
 
   const handleRemoveMember = (member) => {
     const displayName = member.email ?? member.userId;
@@ -210,11 +233,6 @@ export default function SiteDetailScreen({ navigation }) {
                   {site.status || "ACTIVE"}
                 </AppText>
               </View>
-              {site.description ? (
-                <AppText variant="body" style={styles.description}>
-                  {site.description}
-                </AppText>
-              ) : null}
             </View>
 
             <NeobrutalInfoCard variant="stacked">
@@ -258,21 +276,33 @@ export default function SiteDetailScreen({ navigation }) {
                   <NeobrutalSmallCard 
                     variant="stacked"
                     label="Current task"
-                    value={MOCK_TASK}
+                    value={
+                      currentTaskLoading
+                        ? "Loading..."
+                        : currentTask?.title || "No active tasks"
+                    }
                     style={styles.smallCardHalf}
                   />
-                  <NeobrutalSmallCard 
-                    variant="stacked"
-                    label="Foreman"
-                    value={MOCK_FOREMAN}
+                  <Pressable
+                    onPress={() => {
+                      if (!isManager) return;
+                      handleEditForeman();
+                    }}
                     style={styles.smallCardHalf}
-                  />
+                  >
+                    <NeobrutalSmallCard 
+                      variant="stacked"
+                      label="Foreman"
+                      value={site?.foremanEmail || "Unassigned"}
+                      style={styles.foremanPressableCard}
+                    />
+                  </Pressable>
                 </View>
 
                 <NeobrutalInfoCard variant="stacked">
                   <InfoSection title="Summary">
-                    <AppText variant="body" style={styles.summaryPlaceholder}>
-                      —
+                    <AppText variant="body" style={styles.description}>
+                      {site.description || "No summary available for this site."}
                     </AppText>
                   </InfoSection>
                 </NeobrutalInfoCard>
@@ -296,15 +326,28 @@ export default function SiteDetailScreen({ navigation }) {
                     style={styles.scheduleButton}
                   />
                 </View>
+                 <Button
+                    variant="secondary"
+                    title= "Issues"
+                    onPress={() =>
+                      navigation.navigate("Issues", {
+                        siteId,
+                        siteName: site.name,
+                      })
+                    }
+                    style={styles.scheduleButton}
+                  />
               </>
             )}
 
             {/* Members Section */}
-            <NeobrutalInfoCard variant="badge" accentColor="#16a34a">
-              <InfoSection title={`Members (${membersLoading ? "…" : members.length})`}>
-                {membersLoading ? (
-                  <ActivityIndicator style={{ marginTop: 8 }} />
-                ) : members.length === 0 ? (
+
+            {isManager && (
+              <NeobrutalInfoCard variant="badge" accentColor="#16a34a">
+                <InfoSection title={`Members (${membersLoading ? "…" : members.length})`}>
+                  {membersLoading ? (
+                    <ActivityIndicator style={{ marginTop: 8 }} />
+                  ) : members.length === 0 ? (
                   <AppText variant="caption" style={styles.emptyMembers}>
                     No active members yet.
                   </AppText>
@@ -318,8 +361,9 @@ export default function SiteDetailScreen({ navigation }) {
                     />
                   ))
                 )}
-              </InfoSection>
-            </NeobrutalInfoCard>
+                </InfoSection>
+              </NeobrutalInfoCard>
+            )}
           </>
         )}
       </ScrollView>

@@ -17,15 +17,20 @@ import { firebase_fs, firebase_db } from "../firebaseConfig/firebaseConfig";
  * Returns the uid string, or null if not found.
  */
 export async function findUserByEmail(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+
   const snapshot = await dbGet(dbRef(firebase_db, "users"));
   if (!snapshot.exists()) return null;
 
   let foundUid = null;
+
   snapshot.forEach((child) => {
-    if (child.val().email === email) {
+    const storedEmail = String(child.val()?.email || "").trim().toLowerCase();
+    if (storedEmail === normalizedEmail) {
       foundUid = child.key;
     }
   });
+
   return foundUid;
 }
 
