@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 
 /**
@@ -50,5 +59,16 @@ export function useSiteTasks(siteId) {
     });
   }, [tasks]);
 
-  return { tasks: orderedTasks, loading };
+  const updateTask = useCallback(async (id, fields) => {
+    await updateDoc(doc(firebase_fs, "tasks", id), {
+      ...fields,
+      updatedAt: serverTimestamp(),
+    });
+  }, []);
+
+  const deleteTask = useCallback(async (id) => {
+    await deleteDoc(doc(firebase_fs, "tasks", id));
+  }, []);
+
+  return { tasks: orderedTasks, loading, updateTask, deleteTask };
 }

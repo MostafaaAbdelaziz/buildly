@@ -17,6 +17,7 @@ Represents construction sites managed by the app.
   - `line1` (string) - Address line 1
   - `line2` (string) - Address line 2
   - `cityState` (string) - City and state
+- `location` (object, optional) - Map pin coordinates (distinct from text `address`); `{ latitude, longitude }` numbers
 - `projectManagerId` (string, required) - Firebase Auth UID of the project manager
 - `status` (string, optional) - Site status (e.g., "ACTIVE", "COMPLETED")
 - `deleted` (boolean, optional) - Soft delete flag (true = deleted, sites with deleted=true are hidden)
@@ -34,6 +35,7 @@ Represents construction sites managed by the app.
     "line2": "Suite 100",
     "cityState": "Boston, MA"
   },
+  "location": { "latitude": 42.3601, "longitude": -71.0589 },
   "projectManagerId": "abc123xyz",
   "status": "ACTIVE",
   "deleted": false,

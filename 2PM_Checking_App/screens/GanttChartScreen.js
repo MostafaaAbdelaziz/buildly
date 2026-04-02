@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import GanttChart from "../components/GanttChart/GanttChart";
@@ -16,17 +17,19 @@ import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
 import { useSitePhasesOrdered } from "../hooks/useSitePhasesOrdered";
 import { useSiteTasks } from "../hooks/useSiteTasks";
+import { addDaysISO } from "../utils/scheduleDateUtils";
 
 export default function GanttChartScreen() {
   const insets = useSafeAreaInsets();
   const tabBarSpace = layout.floatingTabBarHeight + insets.bottom;
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isManager = role === "manager";
   const { sites, loading: sitesLoading } = useSites(user?.uid);
   const [pickedSiteId, setPickedSiteId] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const siteId = pickedSiteId ?? sites[0]?.id ?? null;
-  const { tasks: firestoreTasks, loading: tasksLoading } = useSiteTasks(siteId);
+  const { tasks: firestoreTasks, loading: tasksLoading, updateTask, deleteTask } = useSiteTasks(siteId);
   const { orderedPhases, loading: phasesLoading } = useSitePhasesOrdered(siteId);
 
   const ganttTasks = useMemo(() => mapTasksToGanttRows(firestoreTasks), [firestoreTasks]);
@@ -37,6 +40,33 @@ export default function GanttChartScreen() {
 
   const selectedSite = sites.find((s) => s.id === siteId);
   const loading = sitesLoading || (!!siteId && (tasksLoading || phasesLoading));
+
+  const taskActions = useMemo(() => {
+    if (!siteId || !isManager) return undefined;
+    return {
+      onDelayByDays: async (taskId, days) => {
+        const task = firestoreTasks.find((t) => t.id === taskId);
+        if (!task) throw new Error("Task not found.");
+        const end = task.endDate || task.startDate;
+        if (!end) {
+          Alert.alert("Cannot delay", "This task has no dates yet. Add dates in the schedule first.");
+          throw new Error("__cancel__");
+        }
+        const next = addDaysISO(end, days);
+        if (!next) {
+          Alert.alert("Error", "Could not update the end date.");
+          throw new Error("__cancel__");
+        }
+        await updateTask(taskId, { endDate: next });
+      },
+      onRename: async (taskId, title) => {
+        await updateTask(taskId, { title });
+      },
+      onDelete: async (taskId) => {
+        await deleteTask(taskId);
+      },
+    };
+  }, [siteId, isManager, firestoreTasks, updateTask, deleteTask]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -98,6 +128,7 @@ export default function GanttChartScreen() {
               title={selectedSite?.name?.trim() || "TIMELINE"}
               tasks={ganttTasks}
               phaseGroups={phaseGroups.length > 0 ? phaseGroups : undefined}
+              taskActions={taskActions}
             />
           )}
         </View>

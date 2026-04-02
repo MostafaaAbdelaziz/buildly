@@ -4,10 +4,14 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   LayoutAnimation,
   Platform,
   UIManager,
 } from "react-native";
+import * as Haptics from "expo-haptics";
+import GanttTaskNameMenu from "./GanttTaskNameMenu";
+import GanttTaskNamePreview from "./GanttTaskNamePreview";
 import {
   DEFAULT_DAY_WIDTH,
   ROW_HEIGHT,
@@ -40,7 +44,7 @@ function collectTasksForRange(tasks, phaseGroups) {
   return tasks;
 }
 
-export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups }) {
+export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups, taskActions }) {
   const [viewMode, setViewMode] = useState("Day");
   const [dayWidth, setDayWidth] = useState(DEFAULT_DAY_WIDTH);
   const [bodyHeight, setBodyHeight] = useState(0);
@@ -55,8 +59,13 @@ export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups
   const didApplyInitialFov = useRef(false);
   const scrollXRef = useRef(0);
   const pendingCenterDayRef = useRef(null);
+  const taskRowRefs = useRef({});
+  const [taskMenu, setTaskMenu] = useState(null);
 
   const usePhaseMode = phaseGroups && phaseGroups.length > 0;
+  const canEditTasks = Boolean(
+    taskActions?.onDelayByDays && taskActions?.onRename && taskActions?.onDelete
+  );
 
   useEffect(() => {
     if (!usePhaseMode || !phaseGroups.length) return;
@@ -240,6 +249,28 @@ export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups
 
   const chartHeight = totalHeight + ROW_GAP;
 
+  const handleTaskLongPress = useCallback(
+    (task) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      const node = taskRowRefs.current[task.id];
+      const mode = canEditTasks ? "actions" : "preview";
+      if (node && typeof node.measureInWindow === "function") {
+        node.measureInWindow((x, y, width, height) => {
+          setTaskMenu({
+            task: { id: task.id, name: task.name },
+            anchor: { x, y, width, height: height || ROW_HEIGHT },
+            mode,
+          });
+        });
+      } else {
+        setTaskMenu({ task: { id: task.id, name: task.name }, anchor: null, mode });
+      }
+    },
+    [canEditTasks]
+  );
+
+  const closeTaskMenu = useCallback(() => setTaskMenu(null), []);
+
   const renderLeftColumn = () => {
     if (usePhaseMode && layoutRows) {
       return layoutRows.map((row) => {
@@ -258,20 +289,49 @@ export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups
             </TouchableOpacity>
           );
         }
+        const t = row.task;
         return (
-          <View key={row.task.id} style={styles.taskNameRow}>
-            <Text style={styles.taskNameText} numberOfLines={1}>
-              {row.task.name}
-            </Text>
+          <View
+            key={t.id}
+            ref={(el) => {
+              if (el) taskRowRefs.current[t.id] = el;
+              else delete taskRowRefs.current[t.id];
+            }}
+            collapsable={false}
+            style={styles.taskNameRow}
+          >
+            <Pressable
+              style={{ flex: 1, justifyContent: "center" }}
+              onLongPress={() => handleTaskLongPress(t)}
+              delayLongPress={450}
+            >
+              <Text style={styles.taskNameText} numberOfLines={1}>
+                {t.name}
+              </Text>
+            </Pressable>
           </View>
         );
       });
     }
     return tasks.map((task) => (
-      <View key={task.id} style={styles.taskNameRow}>
-        <Text style={styles.taskNameText} numberOfLines={1}>
-          {task.name}
-        </Text>
+      <View
+        key={task.id}
+        ref={(el) => {
+          if (el) taskRowRefs.current[task.id] = el;
+          else delete taskRowRefs.current[task.id];
+        }}
+        collapsable={false}
+        style={styles.taskNameRow}
+      >
+        <Pressable
+          style={{ flex: 1, justifyContent: "center" }}
+          onLongPress={() => handleTaskLongPress(task)}
+          delayLongPress={450}
+        >
+          <Text style={styles.taskNameText} numberOfLines={1}>
+            {task.name}
+          </Text>
+        </Pressable>
       </View>
     ));
   };
@@ -378,6 +438,27 @@ export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups
           </View>
         </View>
       )}
+
+      {taskMenu?.mode === "preview" ? (
+        <GanttTaskNamePreview
+          visible
+          task={taskMenu.task}
+          anchor={taskMenu.anchor}
+          onClose={closeTaskMenu}
+        />
+      ) : null}
+
+      {canEditTasks && taskMenu?.mode === "actions" ? (
+        <GanttTaskNameMenu
+          visible
+          task={taskMenu.task}
+          anchor={taskMenu.anchor}
+          onClose={closeTaskMenu}
+          onDelayByDays={taskActions.onDelayByDays}
+          onRename={taskActions.onRename}
+          onDelete={taskActions.onDelete}
+        />
+      ) : null}
     </View>
   );
 }

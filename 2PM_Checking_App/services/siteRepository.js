@@ -14,6 +14,7 @@ export function buildSitePayload({
   description,
   startDate,
   foremanEmail,
+  location,
 }) {
   const trimmedName = (name || "").trim();
   if (!trimmedName) {
@@ -53,6 +54,12 @@ export function buildSitePayload({
 
   if (startDate) {
     payload.startDate = startDate;
+  }
+
+  const lat = typeof location?.latitude === "string" ? parseFloat(location.latitude) : location?.latitude;
+  const lng = typeof location?.longitude === "string" ? parseFloat(location.longitude) : location?.longitude;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    payload.location = { latitude: lat, longitude: lng };
   }
 
   return payload;
