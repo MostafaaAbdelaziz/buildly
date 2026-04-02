@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useLayoutEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   Modal,
   TouchableWithoutFeedback,
+  Platform,
 } from "react-native";
-import { useRoute } from "@react-navigation/native";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
@@ -23,6 +24,13 @@ import { usePhaseTasks } from "../hooks/usePhaseTasks";
 import { usePhaseTemplates } from "../hooks/usePhaseTemplates";
 import { useAuth } from "../context/AuthContext";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { firebase_fs } from "../firebaseConfig/firebaseConfig";
+import {
+  addDaysISO,
+  inclusiveDaysBetween,
+  durationDaysFromTask,
+} from "../utils/scheduleDateUtils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,16 +70,15 @@ function derivePhaseDates(tasks) {
   return `${formatDate(start) || "—"}  →  ${formatDate(end) || "—"}`;
 }
 
-/** Calendar add for YYYY-MM-DD strings */
-function addDaysISO(iso, delta) {
-  if (!iso || typeof iso !== "string") return null;
-  const parts = iso.split("-").map(Number);
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
-  const [y, m, d] = parts;
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + delta);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+/** Earliest start among tasks (uses startDate, else endDate). */
+function minStartDateAmongTasks(tasks) {
+  let min = null;
+  for (const t of tasks) {
+    const s = t.startDate || t.endDate;
+    if (!s) continue;
+    if (!min || s < min) min = s;
+  }
+  return min;
 }
 
 /** Latest end among tasks (uses endDate, else startDate for single-day / legacy). */
@@ -83,6 +90,14 @@ function maxEndDateAmongTasks(tasks) {
     if (!max || end > max) max = end;
   }
   return max;
+}
+
+/** Inclusive calendar days from earliest task boundary to latest (phase span). */
+function phaseSpanDays(tasks) {
+  const start = minStartDateAmongTasks(tasks);
+  const end = maxEndDateAmongTasks(tasks);
+  if (!start || !end) return null;
+  return inclusiveDaysBetween(start, end);
 }
 
 /** First day after the latest task end (for chaining new tasks). */
@@ -278,7 +293,7 @@ function TaskCard({ task, onUpdate, onDelete, isManager }) {
   const [title, setTitle]         = useState(task.title);
   const [description, setDesc]    = useState(task.description || "");
   const [startDate, setStartDate] = useState(task.startDate || "");
-  const [endDate, setEndDate]     = useState(task.endDate || "");
+  const [durationDays, setDurationDays] = useState("1");
   const [status, setStatus]       = useState(task.status || "PENDING");
   const [assignedTo, setAssigned] = useState(task.assignedTo || "");
   const [saving, setSaving]       = useState(false);
@@ -291,7 +306,7 @@ function TaskCard({ task, onUpdate, onDelete, isManager }) {
       setTitle(task.title);
       setDesc(task.description || "");
       setStartDate(task.startDate || "");
-      setEndDate(task.endDate || "");
+      setDurationDays(String(durationDaysFromTask(task)));
       setStatus(task.status || "PENDING");
       setAssigned(task.assignedTo || "");
     }
@@ -311,13 +326,43 @@ function TaskCard({ task, onUpdate, onDelete, isManager }) {
 
   async function handleSaveEdit() {
     if (!title.trim()) return;
+    const trimmedStart = startDate?.trim() || "";
+    if (trimmedStart) {
+      const n = parseInt(String(durationDays).trim(), 10);
+      if (Number.isNaN(n) || n < 1) {
+        Alert.alert("Missing info", "Please enter a number of days (1 or more).");
+        return;
+      }
+      const endDate = addDaysISO(trimmedStart, n - 1);
+      if (!endDate) {
+        Alert.alert("Error", "Could not compute the end date. Check the start date.");
+        return;
+      }
+      setSaving(true);
+      try {
+        await onUpdate(task.id, {
+          title: title.trim(),
+          description: description.trim() || null,
+          startDate: trimmedStart,
+          endDate,
+          status,
+          assignedTo: assignedTo.trim() || null,
+        });
+        setEditing(false);
+      } catch (e) {
+        Alert.alert("Error", e?.message || "Failed to save task.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     setSaving(true);
     try {
       await onUpdate(task.id, {
         title: title.trim(),
         description: description.trim() || null,
-        startDate: startDate || null,
-        endDate: endDate || null,
+        startDate: null,
+        endDate: null,
         status,
         assignedTo: assignedTo.trim() || null,
       });
@@ -329,9 +374,14 @@ function TaskCard({ task, onUpdate, onDelete, isManager }) {
     }
   }
 
-  const dateRange = task.startDate || task.endDate
-    ? `${formatDate(task.startDate) || "—"}  →  ${formatDate(task.endDate) || "—"}`
-    : null;
+  const rangeDays =
+    task.startDate && task.endDate ? inclusiveDaysBetween(task.startDate, task.endDate) : null;
+  const dateRange =
+    task.startDate || task.endDate
+      ? `${formatDate(task.startDate) || "—"}  →  ${formatDate(task.endDate) || "—"}${
+          rangeDays != null ? ` (${rangeDays} ${rangeDays === 1 ? "day" : "days"})` : ""
+        }`
+      : null;
 
   return (
     <View style={s.taskCard}>
@@ -428,15 +478,23 @@ function TaskCard({ task, onUpdate, onDelete, isManager }) {
             multiline
             inputStyle={{ minHeight: 72, textAlignVertical: "top" }}
           />
-          <View style={s.dateRow}>
-            <View style={s.dateField}>
-              <DatePickerInput label="Start date" value={startDate} onChange={setStartDate} />
-            </View>
-            <View style={s.dateSpacer} />
-            <View style={s.dateField}>
-              <DatePickerInput label="End date" value={endDate} onChange={setEndDate} />
-            </View>
-          </View>
+          <DatePickerInput
+            label="Start date (optional)"
+            value={startDate}
+            onChange={setStartDate}
+            placeholder="Pick start date"
+          />
+          <ThemedTextInput
+            label="Number of days"
+            value={durationDays}
+            onChangeText={setDurationDays}
+            placeholder="e.g., 5"
+            keyboardType="number-pad"
+            returnKeyType="done"
+          />
+          <AppText variant="caption" style={s.durationHint}>
+            End date is computed from start date and days. Leave start empty to clear dates.
+          </AppText>
           <AppText variant="body" bold style={s.fieldLabel}>Status</AppText>
           <StatusPicker value={status} onChange={setStatus} />
           <ThemedTextInput
@@ -515,6 +573,53 @@ function TemplatePicker({ visible, onClose, onSelect }) {
   );
 }
 
+// ─── PhaseStartModal ──────────────────────────────────────────────────────────
+
+function PhaseStartModal({
+  visible,
+  templateName,
+  phaseStartDate,
+  onChangePhaseStart,
+  onApply,
+  onCancel,
+  saving,
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <TouchableWithoutFeedback onPress={onCancel}>
+        <View style={s.templateBackdrop}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <View style={s.templateSheet}>
+              <View style={s.templateSheetHeader}>
+                <AppText variant="title" bold style={s.templateSheetTitle}>
+                  PHASE START DATE
+                </AppText>
+                <Pressable onPress={onCancel} hitSlop={8}>
+                  <AppText variant="body" bold style={s.templateSheetClose}>✕</AppText>
+                </Pressable>
+              </View>
+              <AppText variant="body" bold style={s.phaseStartTemplateName}>{templateName}</AppText>
+              <AppText variant="caption" style={s.phaseStartHint}>
+                Tasks are scheduled in order, one after another, from this date.
+              </AppText>
+              <DatePickerInput
+                label="Phase start date (required)"
+                value={phaseStartDate}
+                onChange={onChangePhaseStart}
+                placeholder="Pick start date"
+              />
+              <View style={s.inlineActions}>
+                <Button title="Apply" variant="primary" size="sm" onPress={onApply} loading={saving} />
+                <Button title="Cancel" variant="secondary" size="sm" onPress={onCancel} disabled={saving} />
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
 // ─── PhaseRow ─────────────────────────────────────────────────────────────────
 
 function PhaseRow({ phase, siteId, onUpdate, onDelete, isManager }) {
@@ -533,6 +638,7 @@ function PhaseRow({ phase, siteId, onUpdate, onDelete, isManager }) {
   const { saveTemplate } = usePhaseTemplates();
 
   const derivedDates = derivePhaseDates(tasks);
+  const spanDays = useMemo(() => phaseSpanDays(tasks), [tasks]);
 
   function commitNameEdit() {
     const trimmed = nameVal.trim();
@@ -545,9 +651,14 @@ function PhaseRow({ phase, siteId, onUpdate, onDelete, isManager }) {
   }
 
   function confirmDelete() {
+    const n = tasks.length;
+    const taskLine =
+      n === 0
+        ? "There are no tasks in this phase."
+        : `All ${n} task${n === 1 ? "" : "s"} in this phase will be permanently deleted.`;
     Alert.alert(
-      "Delete Phase",
-      `Delete "${phase.name}" and all its tasks?`,
+      "Delete phase?",
+      `You are about to delete "${phase.name}".\n\n${taskLine}\n\nThis cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: () => onDelete(phase.id) },
@@ -593,7 +704,12 @@ function PhaseRow({ phase, siteId, onUpdate, onDelete, isManager }) {
             />
           ) : (
             <Pressable onPress={() => isManager && setEditingName(true)}>
-              <AppText variant="body" bold>{phase.name}</AppText>
+              <AppText variant="body" bold>
+                {phase.name}
+                {spanDays != null
+                  ? ` (${spanDays} ${spanDays === 1 ? "day" : "days"})`
+                  : ""}
+              </AppText>
               {derivedDates && (
                 <AppText variant="caption" style={s.phaseDates}>{derivedDates}</AppText>
               )}
@@ -714,14 +830,17 @@ function PhaseRow({ phase, siteId, onUpdate, onDelete, isManager }) {
 // ─── SchedulePhasesSection ────────────────────────────────────────────────────
 
 function SchedulePhasesSection({ schedule, siteId, isManager }) {
+  const { user } = useAuth();
   const { phases, loading, addPhase, updatePhase, deletePhase } =
     useSchedulePhases(schedule.id);
-  const { fetchTemplates, templates, loading: tmplLoading } = usePhaseTemplates();
 
   const [addingPhase, setAddingPhase]         = useState(false);
   const [newPhaseName, setNewPhaseName]       = useState("");
   const [newPhaseDesc, setNewPhaseDesc]       = useState("");
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [pendingTemplate, setPendingTemplate]   = useState(null);
+  const [showPhaseStartModal, setShowPhaseStartModal] = useState(false);
+  const [phaseStartDate, setPhaseStartDate]   = useState("");
   const [saving, setSaving]                   = useState(false);
 
   function resetPhaseForm() {
@@ -743,18 +862,74 @@ function SchedulePhasesSection({ schedule, siteId, isManager }) {
     }
   }
 
-  // Apply a template: create the phase, then create all template tasks
-  async function handleApplyTemplate(template, { addTask }) {
+  function onTemplateSelected(tmpl) {
+    setPendingTemplate(tmpl);
+    setShowTemplatePicker(false);
+    setPhaseStartDate("");
+    setShowPhaseStartModal(true);
+  }
+
+  function cancelPhaseStartModal() {
+    setShowPhaseStartModal(false);
+    setPendingTemplate(null);
+    setPhaseStartDate("");
+  }
+
+  async function applyTemplateWithPhaseStart(template, phaseStartISO) {
+    if (!siteId || !user) throw new Error("Missing site or user.");
+    const phaseId = await addPhase(schedule.id, { name: template.name });
+    const tmplTasks = Array.isArray(template.tasks) ? template.tasks : [];
+    let cursor = phaseStartISO;
+    for (const t of tmplTasks) {
+      const title = (t.title || "").trim();
+      if (!title) continue;
+      const raw = t.durationDays;
+      const parsed =
+        typeof raw === "number" && !Number.isNaN(raw)
+          ? Math.max(1, Math.floor(raw))
+          : Math.max(1, parseInt(String(raw ?? "1"), 10) || 1);
+      const n = parsed;
+      const startDate = cursor;
+      const endDate = addDaysISO(cursor, n - 1);
+      if (!endDate) throw new Error("Invalid date chain.");
+      await addDoc(collection(firebase_fs, "tasks"), {
+        siteId,
+        scheduleItemId: phaseId,
+        title,
+        description: t.description?.trim() || null,
+        status: "PENDING",
+        startDate,
+        endDate,
+        assignedTo: null,
+        createdById: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      const next = addDaysISO(endDate, 1);
+      if (!next) throw new Error("Invalid date chain.");
+      cursor = next;
+    }
+  }
+
+  async function handleDeletePhase(phaseId) {
+    try {
+      await deletePhase(phaseId);
+    } catch (e) {
+      Alert.alert("Error", e?.message || "Failed to delete phase.");
+    }
+  }
+
+  async function confirmApplyTemplate() {
+    if (!phaseStartDate?.trim()) {
+      Alert.alert("Missing info", "Please pick a phase start date.");
+      return;
+    }
+    const tmpl = pendingTemplate;
+    if (!tmpl) return;
     setSaving(true);
     try {
-      await addPhase(schedule.id, { name: template.name });
-      // Tasks will be created under the new phase, but we need the phaseId —
-      // this is handled by usePhaseTasks in PhaseRow once the phase is created.
-      // For now, just create the phase; users can add tasks manually or
-      // we extend this once we have the new phase id back.
-      // Note: Firestore addDoc returns the ref, but our hook doesn't return it.
-      // This is a known limitation - see TODO in useSchedulePhases.
-      setShowTemplatePicker(false);
+      await applyTemplateWithPhaseStart(tmpl, phaseStartDate.trim());
+      cancelPhaseStartModal();
     } catch (e) {
       Alert.alert("Error", e?.message || "Failed to apply template.");
     } finally {
@@ -778,7 +953,7 @@ function SchedulePhasesSection({ schedule, siteId, isManager }) {
           phase={p}
           siteId={siteId}
           onUpdate={updatePhase}
-          onDelete={deletePhase}
+          onDelete={handleDeletePhase}
           isManager={isManager}
         />
       ))}
@@ -829,7 +1004,16 @@ function SchedulePhasesSection({ schedule, siteId, isManager }) {
       <TemplatePicker
         visible={showTemplatePicker}
         onClose={() => setShowTemplatePicker(false)}
-        onSelect={(tmpl) => handleApplyTemplate(tmpl, {})}
+        onSelect={onTemplateSelected}
+      />
+      <PhaseStartModal
+        visible={showPhaseStartModal}
+        templateName={pendingTemplate?.name || ""}
+        phaseStartDate={phaseStartDate}
+        onChangePhaseStart={setPhaseStartDate}
+        onApply={confirmApplyTemplate}
+        onCancel={cancelPhaseStartModal}
+        saving={saving}
       />
     </View>
   );
@@ -977,10 +1161,19 @@ function AdHocTasksSection({ siteId, isManager }) {
 
 export default function SiteSchedulesScreen() {
   const route = useRoute();
+  const navigation = useNavigation();
   const { siteId, siteName } = route.params || {};
   const { role } = useAuth();
   const isManager = role === "manager";
   const tabBarPadding = useTabBarPadding();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: { backgroundColor: colors.neutral },
+      headerShadowVisible: false,
+      contentStyle: { backgroundColor: colors.neutral },
+    });
+  }, [navigation]);
 
   const [addingSchedule, setAddingSchedule] = useState(false);
   const [newScheduleName, setNewScheduleName] = useState("");
@@ -1004,8 +1197,14 @@ export default function SiteSchedulesScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={[s.container, { paddingBottom: tabBarPadding }]} keyboardShouldPersistTaps="handled">
+    <Screen padding={{}}>
+      <ScrollView
+        style={s.scrollView}
+        contentContainerStyle={[s.container, { paddingBottom: tabBarPadding, paddingTop: 16, paddingHorizontal: 16 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        {...(Platform.OS === "android" ? { overScrollMode: "never" } : {})}
+      >
         <AppText variant="title" bold style={s.screenTitle}>{siteName || "Site"}</AppText>
         <AppText variant="caption" style={s.screenSubtitle}>SCHEDULES</AppText>
 
@@ -1080,7 +1279,11 @@ export default function SiteSchedulesScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container:      { paddingBottom: 40 },
+  scrollView: {
+    flex: 1,
+    backgroundColor: colors.neutral,
+  },
+  container:      { paddingBottom: 40, flexGrow: 1 },
   screenTitle:    { textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 },
   screenSubtitle: { textTransform: "uppercase", letterSpacing: 2, marginBottom: 16, opacity: 0.6 },
   newScheduleBtn: { marginBottom: 12 },
@@ -1187,6 +1390,9 @@ const s = StyleSheet.create({
   dateRow:    { flexDirection: "row" },
   dateField:  { flex: 1 },
   dateSpacer: { width: 10 },
+  durationHint: { marginTop: 4, marginBottom: 8, opacity: 0.65 },
+  phaseStartTemplateName: { marginBottom: 6 },
+  phaseStartHint: { marginBottom: 12, opacity: 0.7 },
 
   taskCountPill:  { backgroundColor: colors.neutralBorder, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   taskCountText:  { color: colors.text },

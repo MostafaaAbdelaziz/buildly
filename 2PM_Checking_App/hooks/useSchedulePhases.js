@@ -4,10 +4,12 @@ import {
   query,
   where,
   onSnapshot,
+  getDocs,
   addDoc,
   updateDoc,
   deleteDoc,
   doc,
+  writeBatch,
   serverTimestamp,
 } from "firebase/firestore";
 import { firebase_fs } from "../firebaseConfig/firebaseConfig";
@@ -56,7 +58,7 @@ export function useSchedulePhases(scheduleId) {
 
   const addPhase = useCallback(async (schedId, { name, description }) => {
     if (!schedId) throw new Error("Missing scheduleId.");
-    await addDoc(collection(firebase_fs, "schedule_items"), {
+    const ref = await addDoc(collection(firebase_fs, "schedule_items"), {
       scheduleId: schedId,
       name: name.trim(),
       description: description?.trim() || null,
@@ -64,6 +66,7 @@ export function useSchedulePhases(scheduleId) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    return ref.id;
   }, []);
 
   const updatePhase = useCallback(async (id, fields) => {
@@ -73,8 +76,21 @@ export function useSchedulePhases(scheduleId) {
     });
   }, []);
 
-  const deletePhase = useCallback(async (id) => {
-    await deleteDoc(doc(firebase_fs, "schedule_items", id));
+  const deletePhase = useCallback(async (phaseId) => {
+    const tasksQ = query(
+      collection(firebase_fs, "tasks"),
+      where("scheduleItemId", "==", phaseId)
+    );
+    const taskSnap = await getDocs(tasksQ);
+    const taskDocs = taskSnap.docs;
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < taskDocs.length; i += BATCH_SIZE) {
+      const slice = taskDocs.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(firebase_fs);
+      slice.forEach((d) => batch.delete(doc(firebase_fs, "tasks", d.id)));
+      await batch.commit();
+    }
+    await deleteDoc(doc(firebase_fs, "schedule_items", phaseId));
   }, []);
 
   return { phases, loading, error, addPhase, updatePhase, deletePhase };

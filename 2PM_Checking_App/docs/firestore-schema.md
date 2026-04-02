@@ -152,6 +152,7 @@ Represents phase templates that can be reused across schedules and sites. When a
   - Each task object contains:
     - `title` (string, required)
     - `description` (string, optional)
+    - `durationDays` (number, optional) - Inclusive calendar-day span derived from the source task’s `startDate`/`endDate` when the template was saved; defaults to `1` if missing (legacy templates)
 - `createdAt` (timestamp) - Creation timestamp
 - `updatedAt` (timestamp) - Last update timestamp
 
@@ -163,9 +164,9 @@ Represents phase templates that can be reused across schedules and sites. When a
   "createdById": "user456",
   "isPublic": true,
   "tasks": [
-    { "title": "Excavation",        "description": "Dig foundation trenches" },
-    { "title": "Rebar installation", "description": "Install rebar grid" },
-    { "title": "Concrete pour",      "description": "Pour foundation concrete" }
+    { "title": "Excavation", "description": "Dig foundation trenches", "durationDays": 3 },
+    { "title": "Rebar installation", "description": "Install rebar grid", "durationDays": 2 },
+    { "title": "Concrete pour", "description": "Pour foundation concrete", "durationDays": 1 }
   ],
   "createdAt": "2026-03-12T10:00:00Z",
   "updatedAt": "2026-03-12T10:00:00Z"

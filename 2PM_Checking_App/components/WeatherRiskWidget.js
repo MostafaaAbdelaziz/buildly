@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import * as Location from "expo-location";
+import AppText from "./AppText";
+import { colors } from "../constants/theme";
 
 // fallback coords (Halifax)
 const FALLBACK = { latitude: 44.6488, longitude: -63.5752 };
@@ -16,18 +18,6 @@ function riskFromOpenMeteo({ precipitation, windKmh, weatherCode }) {
   return "Low";
 }
 
-function messageFromCode(weatherCode) {
-  const code = Number(weatherCode || 0);
-
-  if ([95, 96, 99].includes(code)) return "Thunderstorm risk — consider pausing outdoor tasks.";
-  if ([61, 63, 65, 80, 81, 82].includes(code)) return "Rain expected — watch for slip hazards and delays.";
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return "Snow/ice possible — verify traction and safety.";
-  if ([45, 48].includes(code)) return "Foggy conditions — reduced visibility on site.";
-  if ([0, 1].includes(code)) return "Clear/mostly clear — normal operations expected.";
-  if ([2, 3].includes(code)) return "Cloudy — conditions stable but monitor changes.";
-  return "Weather conditions available for site planning.";
-}
-
 function iconFromCode(weatherCode) {
   const code = Number(weatherCode || 0);
 
@@ -40,8 +30,11 @@ function iconFromCode(weatherCode) {
   return "🌤️";
 }
 
+/**
+ * Body-only weather block for use inside DashboardCollapsibleSection.
+ * 7-day row is primary; current conditions are a small caption at the bottom.
+ */
 export default function WeatherRiskWidget() {
-  const [collapsed, setCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [wx, setWx] = useState(null);
@@ -70,10 +63,11 @@ export default function WeatherRiskWidget() {
       precipitation: Number(current?.precipitation ?? 0),
       windKmh: Number(current?.wind_speed_10m ?? 0),
       weatherCode: Number(current?.weather_code ?? 0),
-      daily: daily?.time?.map((t, i) => ({
-        date: t,
-        weatherCode: daily?.weather_code?.[i]
-      })) || []
+      daily:
+        daily?.time?.map((t, i) => ({
+          date: t,
+          weatherCode: daily?.weather_code?.[i],
+        })) || [],
     };
   }
 
@@ -82,7 +76,6 @@ export default function WeatherRiskWidget() {
       setLoading(true);
       setErrorMsg("");
 
-      // Try GPS first
       const perm = await Location.requestForegroundPermissionsAsync();
       let coords = FALLBACK;
 
@@ -93,11 +86,9 @@ export default function WeatherRiskWidget() {
           });
           coords = pos.coords;
         } catch {
-          // GPS failed → fallback
           coords = FALLBACK;
         }
       } else {
-        // permission denied → fallback
         coords = FALLBACK;
       }
 
@@ -115,128 +106,69 @@ export default function WeatherRiskWidget() {
   }, []);
 
   const risk = useMemo(() => riskFromOpenMeteo(wx || {}), [wx]);
-  const hint = useMemo(() => messageFromCode(wx?.weatherCode), [wx]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingRow}>
+        <ActivityIndicator color={colors.text} />
+        <AppText variant="body" style={styles.muted}>
+          {" "}
+          Fetching weather...
+        </AppText>
+      </View>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <View>
+        <AppText variant="body" bold style={styles.errorTitle}>
+          Couldn&apos;t load weather
+        </AppText>
+        <AppText variant="caption" style={styles.muted}>
+          {errorMsg}
+        </AppText>
+        <TouchableOpacity onPress={loadWeather} style={styles.retryBtn} activeOpacity={0.85}>
+          <AppText variant="body" bold style={styles.retryText}>
+            Retry
+          </AppText>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.wrapper}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => setCollapsed((v) => !v)}
-        style={styles.headerRow}
-      >
-        <Text style={styles.headerTitle}>Weather Risk Widget</Text>
-        <Text style={styles.chevron}>{collapsed ? "⌄" : "⌃"}</Text>
-      </TouchableOpacity>
-
-      {!collapsed && (
-        <View style={styles.card}>
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator />
-              <Text style={styles.muted}> Fetching weather...</Text>
+    <View>
+      <View style={styles.forecastRow}>
+        {wx?.daily?.map((day, idx) => {
+          const d = new Date(day.date + "T12:00:00Z");
+          const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+          return (
+            <View key={idx} style={styles.forecastDay}>
+              <AppText style={styles.forecastIcon}>{iconFromCode(day.weatherCode)}</AppText>
+              <AppText variant="caption" bold style={styles.forecastDate}>
+                {dayName}
+              </AppText>
             </View>
-          ) : errorMsg ? (
-            <>
-              <Text style={styles.errorTitle}>Couldn’t load weather</Text>
-              <Text style={styles.muted}>{errorMsg}</Text>
+          );
+        })}
+      </View>
 
-              <TouchableOpacity onPress={loadWeather} style={styles.retryBtn} activeOpacity={0.85}>
-                <Text style={styles.retryText}>Retry</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View>
-              <View style={styles.weatherRow}>
-                <Text style={styles.icon}>{iconFromCode(wx?.weatherCode)}</Text>
-
-                <View style={{ flex: 1 }}>
-                  <View style={styles.tempRow}>
-                    <Text style={styles.temp}>{wx?.temp}°</Text>
-                    <Text style={styles.risk}>{risk}</Text>
-                  </View>
-
-                  <Text style={styles.subtitle}>{hint}</Text>
-
-                  <Text style={styles.details}>
-                    Wind: {Math.round(wx?.windKmh)} km/h • Precip: {wx?.precipitation} mm
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.forecastRow}>
-                {wx?.daily?.map((day, idx) => {
-                  const d = new Date(day.date + "T12:00:00Z");
-                  const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
-                  return (
-                    <View key={idx} style={styles.forecastDay}>
-                      <Text style={styles.forecastIcon}>{iconFromCode(day.weatherCode)}</Text>
-                      <Text style={styles.forecastDate}>{dayName}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-        </View>
-      )}
+      <AppText variant="caption" style={styles.todayStrip}>
+        Now {wx?.temp}° • Risk {risk} • Wind {Math.round(wx?.windKmh)} km/h • Precip {wx?.precipitation} mm
+      </AppText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginTop: 18,
-    paddingHorizontal: 20,
-  },
-  headerRow: {
-    backgroundColor: "#ECECEC",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerTitle: { fontSize: 24, fontWeight: "900", color: "#111" },
-  chevron: { fontSize: 16, color: "#555" },
-
-  card: {
-    marginTop: 12,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#EEE",
-    padding: 16,
-  },
   loadingRow: { flexDirection: "row", alignItems: "center" },
-  muted: { color: "#555", fontWeight: "600" },
-  errorTitle: { color: "#b00020", fontWeight: "900", marginBottom: 4 },
-
-  weatherRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  icon: { fontSize: 40 },
-  tempRow: { flexDirection: "row", alignItems: "baseline", gap: 10 },
-  temp: { fontSize: 40, fontWeight: "900", color: "#111" },
-  risk: { fontSize: 22, fontWeight: "900", color: "#111" },
-  subtitle: { marginTop: 2, color: "#555", fontWeight: "700" },
-  details: { marginTop: 6, color: "#777", fontWeight: "600" },
-
-  retryBtn: {
-    marginTop: 10,
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: "#ECECEC",
-  },
-  retryText: { fontWeight: "900", color: "#222" },
+  muted: { color: colors.textSecondary },
+  errorTitle: { color: colors.accent, marginBottom: 4 },
 
   forecastRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#EEE",
   },
   forecastDay: {
     alignItems: "center",
@@ -246,8 +178,26 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   forecastDate: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#777",
+    color: colors.textSecondary,
   },
+
+  todayStrip: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutralBorder,
+    color: colors.textSecondary,
+  },
+
+  retryBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.neutral,
+    borderWidth: 1.5,
+    borderColor: colors.neutralBorder,
+  },
+  retryText: { color: colors.text },
 });

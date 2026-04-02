@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AppText from "./AppText";
 import InviteNotificationCard from "./InviteNotificationCard";
 import { colors } from "../constants/theme";
@@ -45,9 +46,12 @@ export default function NotificationsDrawer({
         <View style={styles.handle} />
 
         <View style={styles.header}>
-          <AppText variant="title" bold style={styles.title}>
-            Notifications
-          </AppText>
+          <View style={styles.headerTitleRow}>
+            <Ionicons name="notifications-outline" size={22} color={colors.text} />
+            <AppText variant="title" bold style={styles.title}>
+              Notifications
+            </AppText>
+          </View>
           {notifications.length > 0 ? (
             <View style={styles.badgeCount}>
               <AppText variant="caption" bold style={styles.badgeCountText}>
@@ -68,7 +72,7 @@ export default function NotificationsDrawer({
         >
           {inviteNotifs.length === 0 ? (
             <View style={styles.emptyState}>
-              <AppText variant="body" style={styles.emptyIcon}>🔔</AppText>
+              <Ionicons name="notifications-outline" size={40} color={colors.textSecondary} />
               <AppText variant="body" style={styles.emptyText}>
                 No new notifications
               </AppText>
@@ -130,6 +134,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e5e5e0",
     gap: 8,
   },
+  headerTitleRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
   title: {
     flex: 1,
     textTransform: "uppercase",
@@ -165,10 +176,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 40,
     gap: 8,
-  },
-  emptyIcon: {
-    fontSize: 36,
-    marginBottom: 4,
   },
   emptyText: {
     fontWeight: "700",

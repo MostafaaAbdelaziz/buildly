@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 import { useAuth } from "../context/AuthContext";
+import { durationDaysFromTask } from "../utils/scheduleDateUtils";
 
 /**
  * Provides phase template CRUD operations.
@@ -55,7 +56,7 @@ export function usePhaseTemplates() {
   /**
    * Save a phase as a template.
    * @param {string} name - Template name
-   * @param {Array} tasks - Array of task objects from the phase (title, description)
+   * @param {Array} tasks - Array of task objects from the phase (title, description, dates)
    * @param {boolean} isPublic - Whether to share with all users
    */
   const saveTemplate = useCallback(
@@ -68,6 +69,7 @@ export function usePhaseTemplates() {
         tasks: tasks.map((t) => ({
           title: t.title,
           description: t.description || null,
+          durationDays: durationDaysFromTask(t),
         })),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

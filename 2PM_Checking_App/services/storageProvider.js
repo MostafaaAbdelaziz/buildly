@@ -33,6 +33,8 @@ async function uploadToCloudinary(localUri) {
     url: json.secure_url,
     provider: "cloudinary",
     storagePath: json.public_id || null,
+    fileSizeBytes: typeof json.bytes === "number" ? json.bytes : null,
+    mimeType: json.format ? `image/${json.format}` : "image/jpeg",
   };
 }
 

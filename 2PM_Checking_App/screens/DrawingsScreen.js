@@ -1,5 +1,16 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert } from "react-native";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Dimensions,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
 import IssueImagePicker from "../components/IssueImagePicker";
 import { useFolders } from "../hooks/useFolders";
@@ -7,38 +18,98 @@ import { useDrawings } from "../hooks/useDrawings";
 import { useAuth } from "../context/AuthContext";
 import { getRoleConfig } from "../constants/roleConfig";
 
+const GRID_COLUMNS = 3;
+
+function formatBytes(bytes) {
+  if (bytes == null || bytes === undefined || Number.isNaN(Number(bytes))) return "—";
+  const n = Number(bytes);
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatTs(ts) {
+  if (!ts) return "—";
+  try {
+    const d = typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString(undefined, {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  } catch {
+    return "—";
+  }
+}
+
 export default function DrawingsScreen({ navigation, route }) {
   const { siteId, siteName } = route.params ?? {};
   const { role } = useAuth();
   const roleCfg = getRoleConfig(role);
   const canEdit = roleCfg?.canCreateIssue || roleCfg?.canResolveIssue || roleCfg?.canCreateSchedule;
   const { folders, loading: foldersLoading, error: foldersError, createFolder } = useFolders(siteId);
-  const [activeFolderId, setActiveFolderId] = useState(null);
-  const activeFolder = useMemo(
-    () => folders.find((f) => f.id === activeFolderId) || folders[0] || null,
-    [folders, activeFolderId]
-  );
+
+  const [currentFolderId, setCurrentFolderId] = useState(null);
+  const [viewMode, setViewMode] = useState("icons");
+  const [pendingImageUri, setPendingImageUri] = useState(null);
+
+  const currentFolder = useMemo(() => {
+    if (!currentFolderId) return null;
+    return folders.find((f) => f.id === currentFolderId) ?? null;
+  }, [folders, currentFolderId]);
+
+  const childFolders = useMemo(() => {
+    const pid = currentFolderId ?? null;
+    return folders
+      .filter((f) => (f.parentId ?? null) === pid)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [folders, currentFolderId]);
+
+  useEffect(() => {
+    if (!currentFolderId) return;
+    if (!folders.some((f) => f.id === currentFolderId)) {
+      setCurrentFolderId(null);
+    }
+  }, [folders, currentFolderId]);
 
   const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing } = useDrawings(
     siteId,
-    activeFolder
+    currentFolder
   );
 
-  const [pendingImageUri, setPendingImageUri] = useState(null);
+  const items = useMemo(() => {
+    const folderRows = childFolders.map((folder) => ({ kind: "folder", ...folder }));
+    const drawingRows = currentFolder
+      ? [...drawings]
+          .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
+          .map((d) => ({ kind: "drawing", ...d }))
+      : [];
+    return [...folderRows, ...drawingRows];
+  }, [childFolders, drawings, currentFolder]);
+
+  const windowWidth = Dimensions.get("window").width;
+  const gridTileWidth = (windowWidth - 32 - 8 * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+
+  function handleBack() {
+    if (!currentFolderId) return;
+    const folder = folders.find((f) => f.id === currentFolderId);
+    setCurrentFolderId(folder?.parentId ?? null);
+  }
 
   function handleCreateFolder() {
     if (!canEdit) {
       Alert.alert("Restricted", "Only managers can create folders.");
       return;
     }
+    const parent = currentFolder;
     Alert.prompt?.("New Folder", "Enter folder name", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Create",
         onPress: async (name) => {
-          if (!name) return;
+          if (!name?.trim()) return;
           try {
-            await createFolder({ name, parent: null });
+            await createFolder({ name: name.trim(), parent: parent ?? null });
           } catch (e) {
             Alert.alert("Error", e?.message || "Failed to create folder.");
           }
@@ -56,8 +127,8 @@ export default function DrawingsScreen({ navigation, route }) {
       Alert.alert("Select image", "Pick or capture an image first.");
       return;
     }
-    if (!activeFolder) {
-      Alert.alert("No folder", "Create or select a folder first.");
+    if (!currentFolder) {
+      Alert.alert("Open a folder", "Open a folder before uploading.");
       return;
     }
 
@@ -72,85 +143,166 @@ export default function DrawingsScreen({ navigation, route }) {
     }
   }
 
-  function renderFolderItem({ item }) {
-    const isActive = activeFolder && activeFolder.id === item.id;
-    return (
-      <TouchableOpacity
-        style={[styles.folderItem, isActive && styles.folderItemActive]}
-        onPress={() => setActiveFolderId(item.id)}
-      >
-        <Text style={styles.folderName}>{item.name}</Text>
-      </TouchableOpacity>
-    );
-  }
+  const openFolder = useCallback((folderId) => {
+    setCurrentFolderId(folderId);
+  }, []);
 
-  function renderDrawingItem({ item }) {
-    return (
-      <TouchableOpacity
-        style={styles.drawingCard}
-        onPress={() => navigation.navigate("DrawingDetail", { siteId, drawingId: item.id })}
-      >
-        <Text style={styles.drawingTitle} numberOfLines={1}>
-          {item.title || "Drawing"}
-        </Text>
-        <Text style={styles.drawingMeta}>v{item.version || 1}</Text>
-      </TouchableOpacity>
-    );
-  }
+  const renderIconItem = useCallback(
+    ({ item }) => {
+      if (item.kind === "folder") {
+        return (
+          <TouchableOpacity
+            style={[styles.gridCell, { width: gridTileWidth }]}
+            onPress={() => openFolder(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Folder ${item.name}`}
+          >
+            <View style={styles.gridIconWrap}>
+              <Ionicons name="folder" size={44} color="#CA8A04" />
+            </View>
+            <Text style={styles.gridLabel} numberOfLines={2}>
+              {item.name}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+      return (
+        <TouchableOpacity
+          style={[styles.gridCell, { width: gridTileWidth }]}
+          onPress={() => navigation.navigate("DrawingDetail", { siteId, drawingId: item.id })}
+          accessibilityRole="button"
+          accessibilityLabel={item.title || "Drawing"}
+        >
+          <View style={styles.gridThumbWrap}>
+            {item.fileUrl ? (
+              <Image source={{ uri: item.fileUrl }} style={styles.gridThumb} resizeMode="cover" />
+            ) : (
+              <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+            )}
+          </View>
+          <Text style={styles.gridLabel} numberOfLines={2}>
+            {item.title || "Drawing"}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [gridTileWidth, navigation, openFolder, siteId]
+  );
+
+  const renderListItem = useCallback(
+    ({ item }) => {
+      if (item.kind === "folder") {
+        return (
+          <TouchableOpacity style={styles.listRow} onPress={() => openFolder(item.id)}>
+            <Ionicons name="folder" size={22} color="#CA8A04" style={styles.listIcon} />
+            <View style={styles.listMain}>
+              <Text style={styles.listTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.listSub}>Folder · {formatTs(item.updatedAt)}</Text>
+            </View>
+          </TouchableOpacity>
+        );
+      }
+      return (
+        <TouchableOpacity
+          style={styles.listRow}
+          onPress={() => navigation.navigate("DrawingDetail", { siteId, drawingId: item.id })}
+        >
+          <Ionicons name="document-text-outline" size={22} color="#4B5563" style={styles.listIcon} />
+          <View style={styles.listMain}>
+            <Text style={styles.listTitle} numberOfLines={1}>
+              {item.title || "Drawing"}
+            </Text>
+            <Text style={styles.listSub}>
+              {formatBytes(item.fileSizeBytes)} · v{item.version || 1} · {formatTs(item.updatedAt)}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [navigation, openFolder, siteId]
+  );
+
+  const loading = foldersLoading || (currentFolder && drawingsLoading);
+  const listError = foldersError || (currentFolder && drawingsError);
 
   return (
     <Screen>
       <View style={styles.container}>
         <Text style={styles.header}>{siteName ? `${siteName} — Drawings` : "Drawings"}</Text>
 
-        <View style={styles.layout}>
-          <View style={styles.leftPane}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Folders</Text>
-              <TouchableOpacity onPress={handleCreateFolder}>
-                <Text style={styles.sectionAction}>+ New</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.toolbar}>
+          {currentFolderId ? (
+            <TouchableOpacity style={styles.backBtn} onPress={handleBack} hitSlop={12}>
+              <Ionicons name="chevron-back" size={22} color="#111827" />
+              <Text style={styles.backText}>Back</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.backPlaceholder} />
+          )}
 
-            {foldersLoading ? (
-              <ActivityIndicator />
-            ) : foldersError ? (
-              <Text style={styles.errorText}>{foldersError.message || "Failed to load folders."}</Text>
-            ) : (
-              <FlatList
-                data={folders}
-                keyExtractor={(item) => item.id}
-                renderItem={renderFolderItem}
-                ListEmptyComponent={<Text style={styles.emptyText}>No folders yet.</Text>}
-              />
-            )}
+          <Text style={styles.breadcrumb} numberOfLines={2}>
+            {currentFolder ? currentFolder.path || currentFolder.name : "All folders"}
+          </Text>
+        </View>
+
+        <View style={styles.actionsRow}>
+          <View style={styles.viewToggle}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === "icons" && styles.toggleBtnActive]}
+              onPress={() => setViewMode("icons")}
+            >
+              <Ionicons name="grid-outline" size={20} color={viewMode === "icons" ? "#111827" : "#6B7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === "list" && styles.toggleBtnActive]}
+              onPress={() => setViewMode("list")}
+            >
+              <Ionicons name="list-outline" size={20} color={viewMode === "list" ? "#111827" : "#6B7280"} />
+            </TouchableOpacity>
           </View>
+          {canEdit ? (
+            <TouchableOpacity onPress={handleCreateFolder}>
+              <Text style={styles.sectionAction}>+ New folder</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
-          <View style={styles.rightPane}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Drawings</Text>
-            </View>
+        <View style={styles.listWrap}>
+          {loading ? (
+            <ActivityIndicator style={styles.loader} />
+          ) : listError ? (
+            <Text style={styles.errorText}>{listError.message || "Failed to load."}</Text>
+          ) : (
+            <FlatList
+              key={viewMode}
+              style={styles.flex1}
+              data={items}
+              keyExtractor={(item) => (item.kind === "folder" ? `f-${item.id}` : `d-${item.id}`)}
+              numColumns={viewMode === "icons" ? GRID_COLUMNS : 1}
+              renderItem={viewMode === "icons" ? renderIconItem : renderListItem}
+              contentContainerStyle={viewMode === "icons" ? styles.gridList : styles.listList}
+              columnWrapperStyle={viewMode === "icons" ? styles.gridRow : undefined}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>
+                  {currentFolder ? "No items in this folder." : "No folders yet. Create one to get started."}
+                </Text>
+              }
+            />
+          )}
+        </View>
 
-            {drawingsLoading ? (
-              <ActivityIndicator />
-            ) : drawingsError ? (
-              <Text style={styles.errorText}>{drawingsError.message || "Failed to load drawings."}</Text>
-            ) : (
-              <FlatList
-                data={drawings}
-                keyExtractor={(item) => item.id}
-                renderItem={renderDrawingItem}
-                ListEmptyComponent={<Text style={styles.emptyText}>No drawings in this folder.</Text>}
-              />
-            )}
-
+        {currentFolder ? (
+          <View style={styles.uploadSection}>
             <IssueImagePicker value={pendingImageUri} onChange={setPendingImageUri} />
-
-            <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload}>
+            <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} disabled={!canEdit}>
               <Text style={styles.uploadText}>Upload drawing</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <Text style={styles.hint}>Open a folder to upload drawings.</Text>
+        )}
       </View>
     </Screen>
   );
@@ -165,56 +317,139 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 8,
   },
-  layout: {
-    flex: 1,
+  toolbar: {
     flexDirection: "row",
-    gap: 16,
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
   },
-  leftPane: {
-    width: 140,
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  rightPane: {
+  backText: {
+    fontWeight: "600",
+    color: "#111827",
+    fontSize: 16,
+  },
+  backPlaceholder: {
+    width: 72,
+  },
+  breadcrumb: {
     flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
   },
-  sectionHeaderRow: {
+  actionsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+  viewToggle: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  toggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+  },
+  toggleBtnActive: {
+    backgroundColor: "#E5E7EB",
   },
   sectionAction: {
     fontWeight: "700",
     color: "#2563EB",
   },
-  folderItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+  listWrap: {
+    flex: 1,
+    minHeight: 120,
   },
-  folderItemActive: {
-    backgroundColor: "#E5E7EB",
+  flex1: {
+    flex: 1,
   },
-  folderName: {
-    fontWeight: "600",
+  loader: {
+    marginTop: 24,
   },
-  drawingCard: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+  gridList: {
+    paddingBottom: 16,
+    flexGrow: 1,
+  },
+  gridRow: {
+    gap: 8,
     marginBottom: 8,
+    paddingHorizontal: 0,
   },
-  drawingTitle: {
+  gridCell: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  gridIconWrap: {
+    height: 72,
+    width: 72,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  gridThumbWrap: {
+    height: 72,
+    width: 72,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  gridThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  gridLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#111827",
+    maxWidth: "100%",
+  },
+  listList: {
+    paddingBottom: 16,
+    flexGrow: 1,
+  },
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E7EB",
+  },
+  listIcon: {
+    marginRight: 12,
+  },
+  listMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  listTitle: {
     fontWeight: "700",
+    fontSize: 15,
+    color: "#111827",
   },
-  drawingMeta: {
+  listSub: {
     marginTop: 4,
     color: "#6B7280",
     fontSize: 12,
+  },
+  uploadSection: {
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    paddingTop: 12,
   },
   uploadBtn: {
     marginTop: 12,
@@ -227,7 +462,12 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "700",
   },
-  emptyText: { color: "#6B7280" },
+  hint: {
+    color: "#6B7280",
+    fontSize: 13,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  emptyText: { color: "#6B7280", textAlign: "center", marginTop: 24 },
   errorText: { color: "#DC2626" },
 });
-

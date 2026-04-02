@@ -1,6 +1,9 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from "react-native";
+import React, { useRef, useState } from "react";
+import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Pressable, Animated } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
+import WeatherRiskWidget from "../components/WeatherRiskWidget";
+import DashboardCollapsibleSection from "../components/DashboardCollapsibleSection";
 import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
 import { useNotifications } from "../hooks/useNotifications";
@@ -11,27 +14,24 @@ import NotificationsDrawer from "../components/NotificationsDrawer";
 import { colors } from "../constants/theme";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
+/**
+ * Shared dashboard for foreman and subcontractor (see DashboardStack).
+ * Matches PMDashboard layout; keeps notifications in a neobrutal header control.
+ */
 export default function ForemanDashboard({ navigation }) {
   const { user } = useAuth();
   const { sites, loading: sitesLoading } = useSites(user?.uid);
   const { notifications } = useNotifications(user?.uid);
   const { handleAccept, handleReject } = useSiteMembers({ uid: user?.uid, name: user?.email ?? "" });
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [projectsCollapsed, setProjectsCollapsed] = useState(false);
+  const [sitesCollapsed, setSitesCollapsed] = useState(false);
+  const [pmCheckCollapsed, setPmCheckCollapsed] = useState(true);
+  const [weatherCollapsed, setWeatherCollapsed] = useState(true);
+  const [issuesCollapsed, setIssuesCollapsed] = useState(true);
   const tabBarPadding = useTabBarPadding();
-
-  // Stable format: "Tue, March 3"
-  const todayLabel = useMemo(() => {
-    const d = new Date();
-    const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
-    const month = d.toLocaleDateString("en-US", { month: "long" });
-    const day = d.getDate();
-    return `${weekday}, ${month} ${day}`;
-  }, []);
 
   return (
     <Screen
-      // override Screen background + padding to match mock
       padding={{ paddingHorizontal: 0, paddingVertical: 0 }}
       style={{ backgroundColor: "#F6F4EE" }}
     >
@@ -47,62 +47,36 @@ export default function ForemanDashboard({ navigation }) {
         }}
       />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Dashboard</Text>
-
-            <TouchableOpacity activeOpacity={0.7} style={styles.dateRow}>
-              <Text style={styles.dateText}>{todayLabel}</Text>
-              <Text style={styles.dateChevron}>⌄</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.bellBtn}
-            activeOpacity={0.7}
+          <AppText variant="title" bold style={styles.screenTitle}>
+            Dashboard
+          </AppText>
+          <NeobrutalNotificationButton
+            count={notifications.length}
             onPress={() => setDrawerOpen(true)}
-          >
-            <Text style={styles.bellIcon}>🔔</Text>
-            {notifications.length > 0 ? (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {notifications.length > 9 ? "9+" : notifications.length}
-                </Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
+          />
         </View>
 
-        {/* 2PM Check Status */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.statusRow}
-          onPress={() => {
-            navigation.navigate("2PMCheck");
-          }}
-        >
-          <Text style={styles.statusRowText}>2PM Check Status</Text>
-
-          <View style={styles.statusRight}>
-            <Text style={styles.chevronRight}>›</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Sites */}
-        <SectionHeader
+        <DashboardCollapsibleSection
           title="Sites"
-          collapsed={projectsCollapsed}
-          onToggle={() => setProjectsCollapsed((v) => !v)}
-        />
-
-        {!projectsCollapsed && (
+          accentColor={colors.primary}
+          collapsed={sitesCollapsed}
+          onToggle={() => setSitesCollapsed((v) => !v)}
+          style={styles.firstSection}
+        >
           <View style={styles.sectionBody}>
             {sitesLoading ? (
-              <AppText variant="body" style={styles.loadingText}>Loading sites...</AppText>
+              <AppText variant="body" style={styles.loadingText}>
+                Loading sites...
+              </AppText>
             ) : sites.length === 0 ? (
-              <AppText variant="body" style={styles.emptyText}>No sites assigned yet.</AppText>
+              <AppText variant="body" style={styles.emptyText}>
+                No sites assigned yet.
+              </AppText>
             ) : (
               sites.map((site) => (
                 <TouchableOpacity
@@ -136,7 +110,52 @@ export default function ForemanDashboard({ navigation }) {
               ))
             )}
           </View>
-        )}
+        </DashboardCollapsibleSection>
+
+        <DashboardCollapsibleSection
+          title="2PM Check Status"
+          accentColor="#16a34a"
+          collapsed={pmCheckCollapsed}
+          onToggle={() => setPmCheckCollapsed((v) => !v)}
+        >
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.navRow}
+            onPress={() => navigation.navigate("2PMCheck")}
+          >
+            <AppText variant="body" bold>
+              Open today&apos;s check-in
+            </AppText>
+            <AppText variant="title" style={styles.chevronRight}>
+              ›
+            </AppText>
+          </TouchableOpacity>
+        </DashboardCollapsibleSection>
+
+        <DashboardCollapsibleSection
+          title="Weather"
+          accentColor="#64748b"
+          collapsed={weatherCollapsed}
+          onToggle={() => setWeatherCollapsed((v) => !v)}
+        >
+          <WeatherRiskWidget />
+        </DashboardCollapsibleSection>
+
+        <DashboardCollapsibleSection
+          title="Open issues"
+          accentColor={colors.accent}
+          collapsed={issuesCollapsed}
+          onToggle={() => setIssuesCollapsed((v) => !v)}
+        >
+          <TouchableOpacity activeOpacity={0.85} style={styles.navRow}>
+            <AppText variant="body" bold style={styles.issuesText}>
+              5 open issues today
+            </AppText>
+            <AppText variant="title" style={styles.chevronRight}>
+              ›
+            </AppText>
+          </TouchableOpacity>
+        </DashboardCollapsibleSection>
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -144,142 +163,148 @@ export default function ForemanDashboard({ navigation }) {
   );
 }
 
-/* ---------- Small UI components ---------- */
+function NeobrutalNotificationButton({ count, onPress }) {
+  const translate = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
-function SectionHeader({ title, collapsed, onToggle }) {
+  const handlePressIn = () => {
+    Animated.timing(translate, {
+      toValue: { x: 4, y: 4 },
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.timing(translate, {
+      toValue: { x: 0, y: 0 },
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onToggle} style={styles.sectionHeader}>
-      <Text style={styles.sectionHeaderText}>{title}</Text>
-      <Text style={styles.sectionChevron}>{collapsed ? "⌄" : "⌃"}</Text>
-    </TouchableOpacity>
+    <View style={styles.notifWrapper}>
+      <View style={styles.notifShadow} />
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={onPress}
+        style={styles.notifPressable}
+        accessibilityRole="button"
+        accessibilityLabel="Notifications"
+      >
+        <Animated.View
+          style={[
+            styles.notifFace,
+            {
+              transform: [{ translateX: translate.x }, { translateY: translate.y }],
+            },
+          ]}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.text} />
+        </Animated.View>
+      </Pressable>
+      {count > 0 ? (
+        <View style={styles.notifBadge}>
+          <AppText variant="caption" bold style={styles.notifBadgeText}>
+            {count > 9 ? "9+" : String(count)}
+          </AppText>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: 28, // Additional padding on top of tab bar padding
+    paddingBottom: 28,
   },
 
   header: {
     paddingTop: 28,
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 12,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
+    gap: 12,
   },
-  title: {
-    fontSize: 46,
-    fontWeight: "900",
-    color: "#111",
-  },
-  dateRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  dateText: {
-    fontSize: 20,
-    color: "#6B6B6B",
-    fontWeight: "700",
-  },
-  dateChevron: {
-    fontSize: 16,
-    color: "#6B6B6B",
-    marginTop: Platform.OS === "ios" ? 2 : 0,
-  },
-  bellBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bellIcon: {
-    fontSize: 20,
-  },
-  bellBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#dc2626",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: "#F6F4EE",
-  },
-  bellBadgeText: {
-    color: "#fff",
-    fontSize: 9,
-    fontWeight: "900",
+  screenTitle: {
+    flex: 1,
+    color: colors.text,
   },
 
-  statusRow: {
-    marginTop: 16,
-    marginHorizontal: 20,
-    backgroundColor: "#ECECEC",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+  firstSection: {
+    marginTop: 4,
+  },
+
+  sectionBody: {
+    gap: 14,
+  },
+
+  navRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  statusRowText: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#111",
-  },
-  statusRight: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 10,
-  },
-  pill: {
-    backgroundColor: "#DCDCDC",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  pillText: {
-    fontWeight: "900",
-    color: "#555",
   },
   chevronRight: {
     fontSize: 22,
-    color: "#666",
+    color: colors.textSecondary,
     marginTop: Platform.OS === "ios" ? -1 : 0,
   },
+  issuesText: {
+    flex: 1,
+  },
 
-  sectionHeader: {
-    marginTop: 18,
-    marginHorizontal: 20,
-    backgroundColor: "#ECECEC",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
+  notifWrapper: {
+    position: "relative",
+    width: 40,
+    height: 40,
+  },
+  notifShadow: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: "#919191",
+    borderWidth: 3,
+    borderColor: "#919191",
+    borderRadius: 8,
+  },
+  notifPressable: {
+    position: "relative",
+    width: "100%",
+    height: "100%",
+  },
+  notifFace: {
+    width: 40,
+    height: 40,
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
-  sectionHeaderText: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#111",
+  notifBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#F6F4EE",
   },
-  sectionChevron: {
-    fontSize: 16,
-    color: "#555",
-  },
-  sectionBody: {
-    marginHorizontal: 20,
-    marginTop: 12,
-    gap: 14,
+  notifBadgeText: {
+    color: colors.textOnPrimary,
+    fontSize: 10,
   },
 
   siteCardHeader: {
@@ -317,32 +342,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  issuesRow: {
-    marginTop: 18,
-    marginHorizontal: 20,
-    backgroundColor: "#F7F7F8",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#EEE",
-  },
-  issuesIcon: { fontSize: 18 },
-  issuesText: { flex: 1, fontSize: 20, fontWeight: "900", color: "#111" },
-
   loadingText: {
-    fontSize: 16,
-    color: "#666",
+    color: colors.textSecondary,
     textAlign: "center",
     paddingVertical: 20,
   },
   emptyText: {
-    fontSize: 16,
-    color: "#666",
+    color: colors.textSecondary,
     textAlign: "center",
     paddingVertical: 20,
   },
