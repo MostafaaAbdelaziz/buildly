@@ -43,3 +43,7 @@ export async function uploadDrawingFile(localUri, { siteId, folderPath }) {
   return uploadToCloudinary(localUri);
 }
 
+export async function uploadIssueImage(localUri) {
+  return uploadToCloudinary(localUri);
+}
+

@@ -2,9 +2,9 @@ import React, { useMemo, useState } from "react";
 import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import MapView, { Marker } from "react-native-maps";
-import { useIssues } from "../context/IssuesContext";
 import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
+import { useFirestoreIssuesBySites } from "../hooks/useFirestoreIssues";
 
 function pinColorFromPriority(priority) {
   const p = String(priority || "").toLowerCase();
@@ -39,9 +39,10 @@ function getSiteCoord(site) {
 }
 
 export default function MapScreen({ route, navigation }) {
-  const { issues } = useIssues();
   const { user } = useAuth();
   const { sites } = useSites(user?.uid);
+  const siteIds = useMemo(() => sites.map((s) => s.id), [sites]);
+  const { issues } = useFirestoreIssuesBySites(siteIds);
   const tabBarHeight = useBottomTabBarHeight();
 
   const mode = route?.params?.mode || "view"; // "view" | "pick"

@@ -36,14 +36,21 @@ export default function TwoPMCheckScreen({ navigation }) {
   const { site, loading: siteLoading, error: siteError } = useSiteDetail(siteId);
   const { members, loading: membersLoading } = useActiveSiteMembers(siteId);
 
-  // Use site's configured check-in hour, fall back to 14 (2PM)
-  const checkInHour = useMemo(() => {
-    if (!site?.checkInTime) return 14;
-    const [h] = site.checkInTime.split(":").map(Number);
-    return h;
+  // Use site's configured check-in hour, fall back to 14:00 (2PM)
+  const checkInTimeObj = useMemo(() => {
+    if (!site?.checkInTime) return { hour: 14, minute: 0 };
+    const [h, m] = site.checkInTime.split(":").map(Number);
+    return { hour: h, minute: m || 0 };
   }, [site?.checkInTime]);
 
-  const isTwoPM = hours === checkInHour;
+  const isCheckInOpen = hours > checkInTimeObj.hour || (hours === checkInTimeObj.hour && minutes >= checkInTimeObj.minute);
+
+  const displayTime = useMemo(() => {
+    const d = new Date();
+    d.setHours(checkInTimeObj.hour);
+    d.setMinutes(checkInTimeObj.minute);
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }, [checkInTimeObj]);
 
   const todayLabel = useMemo(() => {
     return new Date().toLocaleDateString("en-US", {
@@ -169,7 +176,7 @@ export default function TwoPMCheckScreen({ navigation }) {
               Bob
             </AppText>
             <AppText variant="caption" bold style={styles.timeLabel}>
-              2:00 PM
+              {displayTime}
             </AppText>
           </View>
         </View>
@@ -215,10 +222,10 @@ export default function TwoPMCheckScreen({ navigation }) {
                   {"You're set for today"}
                 </AppText>
                 <AppText variant="body" style={styles.cardBody}>
-                  Thanks for checking in. Come back tomorrow at 2:00 PM for the next check-in.
+                  Thanks for checking in. Come back tomorrow at {displayTime} for the next check-in.
                 </AppText>
               </Card>
-            ) : isTwoPM ? (
+            ) : isCheckInOpen ? (
               <>
                 <AppText variant="title" bold style={styles.question}>
                   Is the site ready?
@@ -265,7 +272,7 @@ export default function TwoPMCheckScreen({ navigation }) {
                     Check-in window
                   </AppText>
                   <AppText variant="body">
-                    Daily check-in is due at 2:00 PM. Answer honestly so the team can act fast.
+                    Daily check-in opens at {displayTime}. Answer honestly so the team can act fast.
                   </AppText>
                 </Card>
               </>
@@ -276,7 +283,7 @@ export default function TwoPMCheckScreen({ navigation }) {
                     Not open yet
                   </AppText>
                   <AppText variant="body" style={styles.cardBody}>
-                    The 2:00 PM check-in only runs during the 2:00 PM hour. Come back then to record
+                    The daily check-in opens at {displayTime}. Come back then to record
                     READY or NOT READY.
                   </AppText>
                 </Card>

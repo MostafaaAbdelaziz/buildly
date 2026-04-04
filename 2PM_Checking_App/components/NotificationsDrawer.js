@@ -26,6 +26,7 @@ import { colors } from "../constants/theme";
  *  - onAccept      (notification) => void  — for SITE_INVITE
  *  - onReject      (notification) => void  — for SITE_INVITE
  *  - onViewIssue   (issueId) => void       — for CHECK_IN_ALERT
+ *  - onDismiss     (notification) => void  — for CHECK_IN_ALERT
  */
 export default function NotificationsDrawer({
   visible,
@@ -34,6 +35,7 @@ export default function NotificationsDrawer({
   onAccept,
   onReject,
   onViewIssue,
+  onDismiss,
 }) {
   const inviteNotifs = notifications.filter((n) => n.type === "SITE_INVITE");
   const alertNotifs = notifications.filter((n) => n.type === "CHECK_IN_ALERT");
@@ -94,6 +96,7 @@ export default function NotificationsDrawer({
                     onClose();
                     onViewIssue?.(issueId);
                   }}
+                  onDismiss={() => onDismiss?.(notif)}
                 />
               ))}
               {inviteNotifs.map((notif) => (

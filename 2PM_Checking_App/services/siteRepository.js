@@ -107,9 +107,10 @@ export async function softDeleteSite(siteId) {
 }
 
 export async function createIssueForSite(issueData) {
+  const { id: _discard, ...rest } = issueData;
   const siteRef = await addDoc(collection(firebase_fs, "issues"), {
-    ...issueData,
-    status : issueData.status || "Open",
+    ...rest,
+    status: rest.status || "Open",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

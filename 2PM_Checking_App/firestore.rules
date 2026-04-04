@@ -31,9 +31,13 @@ service cloud.firestore {
 
     // ----- Notifications collection -----
     // Only the recipient can read/mark-read their notifications. Any signed-in user can create.
+    // The reporter (if any) can also update it to link an issue.
     match /notifications/{notifId} {
-      allow read, update: if isSignedIn() &&
-        resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.reporterUserId == request.auth.uid
+      );
       allow create: if isSignedIn();
       allow delete: if false;
     }
@@ -96,6 +100,7 @@ service cloud.firestore {
 
     match /daily_check_ins/{checkInId} {
       allow read: if isSignedIn() && (
+        resource == null ||
         resource.data.userId == request.auth.uid ||
         resource.data.projectManagerId == request.auth.uid
       );

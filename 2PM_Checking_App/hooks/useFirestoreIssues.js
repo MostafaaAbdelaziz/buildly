@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+import { useMemo } from "react";
 import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 
 /**
@@ -40,7 +41,7 @@ export function useFirestoreIssues(siteId) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setIssues(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setIssues(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {
@@ -54,6 +55,52 @@ export function useFirestoreIssues(siteId) {
   }, [siteId]);
 
   return { issues, loading, error };
+}
+
+/**
+ * Real-time listener for issues across multiple sites.
+ * Used by MapScreen so both PM and foreman see all Firestore issues on the map.
+ *
+ * @param {string[]} siteIds
+ * @returns {{ issues: object[], loading: boolean }}
+ */
+export function useFirestoreIssuesBySites(siteIds) {
+  const [issues, setIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const stableSiteIds = useMemo(() => siteIds ?? [], [JSON.stringify(siteIds)]);
+
+  useEffect(() => {
+    if (!stableSiteIds.length) {
+      setIssues([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const q = query(
+      collection(firebase_fs, "issues"),
+      where("siteId", "in", stableSiteIds),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setIssues(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
+        setLoading(false);
+      },
+      (err) => {
+        console.warn("useFirestoreIssuesBySites error:", err?.message);
+        setLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [stableSiteIds]);
+
+  return { issues, loading };
 }
 
 /**

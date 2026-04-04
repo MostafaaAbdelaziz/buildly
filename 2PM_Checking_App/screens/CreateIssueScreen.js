@@ -20,6 +20,7 @@ import { colors } from "../constants/theme";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import { createIssueForSite } from "../services/siteRepository";
 import { linkIssueToCheckInAlert } from "../services/notificationRepository";
+import { uploadIssueImage } from "../services/storageProvider";
 
 export default function CreateIssueScreen({ navigation, route }) {
   const { user } = useAuth();
@@ -150,13 +151,18 @@ export default function CreateIssueScreen({ navigation, route }) {
     }
 
     try{
+      let imageUrl = null;
+      if (image) {
+        const result = await uploadIssueImage(image);
+        imageUrl = result.url;
+      }
+
       const ref = await createIssueForSite({
-        id: null,
         siteId,
         title: title.trim(),
         priority: priority.trim(),
         description: description.trim(),
-        image: image || null,
+        image: imageUrl,
         location: location || null,
         createdBy: user?.displayName || user?.email || "Unknown",
         status: "Open",

@@ -21,7 +21,7 @@ import { useTabBarPadding } from "../hooks/useTabBarPadding";
 export default function ForemanDashboard({ navigation }) {
   const { user } = useAuth();
   const { sites, loading: sitesLoading } = useSites(user?.uid);
-  const { notifications } = useNotifications(user?.uid);
+  const { notifications, markRead } = useNotifications(user?.uid);
   const { handleAccept, handleReject } = useSiteMembers({ uid: user?.uid, name: user?.email ?? "" });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sitesCollapsed, setSitesCollapsed] = useState(false);
@@ -57,6 +57,7 @@ export default function ForemanDashboard({ navigation }) {
             },
           });
         }}
+        onDismiss={(notif) => markRead(notif.id)}
       />
 
       <ScrollView

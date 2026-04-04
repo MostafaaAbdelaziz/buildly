@@ -63,6 +63,12 @@ export default function IssueDetailScreen({ route, navigation }) {
           {issue.description || "No description provided."}
         </Text>
 
+        {issue.location?.latitude != null && issue.location?.longitude != null ? (
+          <Text style={[styles.line, { marginTop: 10 }]}>
+            📍 {Number(issue.location.latitude).toFixed(5)}, {Number(issue.location.longitude).toFixed(5)}
+          </Text>
+        ) : null}
+
         {issue.image ? (
           <Image source={{ uri: issue.image }} style={styles.photo} />
         ) : null}

@@ -12,8 +12,9 @@ import { colors } from "../constants/theme";
  * Props:
  *  - notification  { id, siteName, reporterEmail, status, issueId, localDate }
  *  - onViewIssue   (issueId) => void — called when user taps "View issue"
+ *  - onDismiss     () => void        — called when user taps ✕ to dismiss
  */
-export default function CheckInAlertCard({ notification, onViewIssue }) {
+export default function CheckInAlertCard({ notification, onViewIssue, onDismiss }) {
   const { siteName, reporterEmail, status, issueId, localDate } = notification;
 
   return (
@@ -28,10 +29,17 @@ export default function CheckInAlertCard({ notification, onViewIssue }) {
           <AppText variant="caption" bold style={styles.typeLabel}>
             CHECK-IN ALERT
           </AppText>
-          <View style={styles.statusBadge}>
-            <AppText variant="caption" bold style={styles.statusBadgeText}>
-              NOT ON TRACK
-            </AppText>
+          <View style={styles.headerRight}>
+            <View style={styles.statusBadge}>
+              <AppText variant="caption" bold style={styles.statusBadgeText}>
+                NOT ON TRACK
+              </AppText>
+            </View>
+            {onDismiss && (
+              <TouchableOpacity onPress={onDismiss} hitSlop={12} style={styles.dismissBtn}>
+                <AppText variant="caption" bold style={styles.dismissText}>✕</AppText>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -94,6 +102,18 @@ const styles = StyleSheet.create({
   typeLabel: {
     letterSpacing: 1,
     color: colors.textSecondary,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  dismissBtn: {
+    padding: 2,
+  },
+  dismissText: {
+    color: colors.textSecondary,
+    fontSize: 16,
   },
   statusBadge: {
     backgroundColor: "#fee2e2",

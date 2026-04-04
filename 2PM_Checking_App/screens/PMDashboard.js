@@ -47,6 +47,7 @@ export default function PMDashboard({ navigation }) {
         onViewIssue={(issueId) => {
           navigation.navigate("IssueDetail", { issueId });
         }}
+        onDismiss={(notif) => markRead(notif.id)}
       />
 
       <ScrollView
