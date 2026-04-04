@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
   writeBatch,
   serverTimestamp,
 } from "firebase/firestore";
@@ -31,6 +32,49 @@ export async function createNotification(userId, payload) {
     membershipId: payload.membershipId,
     read: false,
     createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Creates a CHECK_IN_ALERT notification for the site's project manager.
+ *
+ * @param {string} pmUserId          - PM's Firebase Auth UID
+ * @param {object} payload
+ * @param {string} payload.siteId
+ * @param {string} payload.siteName
+ * @param {string} payload.reporterUserId  - UID of person who answered "not on track"
+ * @param {string} payload.reporterEmail   - Display email for the card
+ * @param {string} payload.localDate       - YYYY-MM-DD
+ * @returns {Promise<string>}  the new notification document ID
+ */
+export async function createCheckInAlertNotification(pmUserId, payload) {
+  const notifRef = doc(collection(firebase_fs, "notifications"));
+  await setDoc(notifRef, {
+    userId: pmUserId,
+    type: "CHECK_IN_ALERT",
+    siteId: payload.siteId,
+    siteName: payload.siteName,
+    reporterUserId: payload.reporterUserId,
+    reporterEmail: payload.reporterEmail ?? "",
+    localDate: payload.localDate,
+    issueId: null,
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+  return notifRef.id;
+}
+
+/**
+ * Links an issue to an existing CHECK_IN_ALERT notification.
+ * Called after the user creates an issue from the not-on-track flow.
+ *
+ * @param {string} notificationId
+ * @param {string} issueId
+ */
+export async function linkIssueToCheckInAlert(notificationId, issueId) {
+  if (!notificationId || !issueId) return;
+  await updateDoc(doc(firebase_fs, "notifications", notificationId), {
+    issueId,
   });
 }
 

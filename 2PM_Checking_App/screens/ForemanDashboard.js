@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Pressable, Animated } from "react-native";
+import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Pressable, Animated, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
 import WeatherRiskWidget from "../components/WeatherRiskWidget";
@@ -44,6 +44,18 @@ export default function ForemanDashboard({ navigation }) {
         }}
         onReject={async (notif) => {
           await handleReject(notif.membershipId, notif.id);
+        }}
+        onViewIssue={(issueId) => {
+          navigation.navigate("IssueDetail", {
+            issue: {
+              id: issueId,
+              title: "",
+              priority: "Medium",
+              status: "Open",
+              description: "",
+              createdAt: "",
+            },
+          });
         }}
       />
 
@@ -121,7 +133,21 @@ export default function ForemanDashboard({ navigation }) {
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.navRow}
-            onPress={() => navigation.navigate("2PMCheck")}
+            onPress={() => {
+              if (sites.length === 0) {
+                Alert.alert("No sites", "You have no sites yet.");
+                return;
+              }
+              if (sites.length === 1) {
+                const s = sites[0];
+                navigation.navigate("2PMCheck", { siteId: s.id, siteName: s.name });
+                return;
+              }
+              Alert.alert(
+                "Choose a site",
+                "Open a site from the list above, then tap Daily check-in on the site screen."
+              );
+            }}
           >
             <AppText variant="body" bold>
               Open today&apos;s check-in
@@ -186,6 +212,7 @@ function NeobrutalNotificationButton({ count, onPress }) {
     <View style={styles.notifWrapper}>
       <View style={styles.notifShadow} />
       <Pressable
+        testID="header-notifications"
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={onPress}

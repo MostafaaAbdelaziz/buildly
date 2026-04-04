@@ -100,7 +100,7 @@ export default function IssuesScreen({ navigation, route }) {
   }
 
   return (
-    <Screen>
+    <Screen edges={[]}>
       {isManager && siteTrash.length > 0 && (
         <Button
           variant="tertiary"

@@ -10,6 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AppText from "./AppText";
 import InviteNotificationCard from "./InviteNotificationCard";
+import CheckInAlertCard from "./CheckInAlertCard";
 import { colors } from "../constants/theme";
 
 /**
@@ -22,8 +23,9 @@ import { colors } from "../constants/theme";
  *  - visible       boolean
  *  - onClose       () => void
  *  - notifications array of notification objects
- *  - onAccept      (notification) => void
- *  - onReject      (notification) => void
+ *  - onAccept      (notification) => void  — for SITE_INVITE
+ *  - onReject      (notification) => void  — for SITE_INVITE
+ *  - onViewIssue   (issueId) => void       — for CHECK_IN_ALERT
  */
 export default function NotificationsDrawer({
   visible,
@@ -31,8 +33,10 @@ export default function NotificationsDrawer({
   notifications = [],
   onAccept,
   onReject,
+  onViewIssue,
 }) {
   const inviteNotifs = notifications.filter((n) => n.type === "SITE_INVITE");
+  const alertNotifs = notifications.filter((n) => n.type === "CHECK_IN_ALERT");
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -70,29 +74,37 @@ export default function NotificationsDrawer({
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {inviteNotifs.length === 0 ? (
+          {inviteNotifs.length === 0 && alertNotifs.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="notifications-outline" size={40} color={colors.textSecondary} />
               <AppText variant="body" style={styles.emptyText}>
                 No new notifications
               </AppText>
               <AppText variant="caption" style={styles.emptySubtext}>
-                Site invitations from your manager will appear here.
+                Site invitations and check-in alerts will appear here.
               </AppText>
             </View>
           ) : (
-            inviteNotifs.map((notif) => (
-              <InviteNotificationCard
-                key={notif.id}
-                notification={notif}
-                onAccept={(n) => {
-                  onAccept(n);
-                }}
-                onReject={(n) => {
-                  onReject(n);
-                }}
-              />
-            ))
+            <>
+              {alertNotifs.map((notif) => (
+                <CheckInAlertCard
+                  key={notif.id}
+                  notification={notif}
+                  onViewIssue={(issueId) => {
+                    onClose();
+                    onViewIssue?.(issueId);
+                  }}
+                />
+              ))}
+              {inviteNotifs.map((notif) => (
+                <InviteNotificationCard
+                  key={notif.id}
+                  notification={notif}
+                  onAccept={(n) => onAccept(n)}
+                  onReject={(n) => onReject(n)}
+                />
+              ))}
+            </>
           )}
         </ScrollView>
       </View>

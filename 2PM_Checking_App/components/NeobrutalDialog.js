@@ -15,6 +15,8 @@ import Button from "./Button";
  * - value: string
  * - onChangeText: (text: string) => void
  * - placeholder?: string
+ * - inputLabel?: string (default "Site name")
+ * - multiline?: boolean
  * - onOk: () => void
  * - onCancel: () => void
  */
@@ -25,6 +27,8 @@ export default function NeobrutalDialog({
   value,
   onChangeText,
   placeholder,
+  inputLabel = "Site name",
+  multiline = false,
   onOk,
   onCancel,
 }) {
@@ -52,12 +56,14 @@ export default function NeobrutalDialog({
                 ) : null}
 
                 <ThemedTextInput
-                  label="Site name"
+                  label={inputLabel}
                   placeholder={placeholder || "Enter site name"}
                   value={value}
                   onChangeText={onChangeText}
                   style={styles.input}
-                  autoCapitalize="words"
+                  autoCapitalize={multiline ? "sentences" : "words"}
+                  multiline={multiline}
+                  inputStyle={multiline ? { minHeight: 120, textAlignVertical: "top" } : undefined}
                 />
 
                 <View style={styles.buttonsRow}>

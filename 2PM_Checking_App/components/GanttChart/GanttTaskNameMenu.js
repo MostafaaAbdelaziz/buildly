@@ -33,13 +33,19 @@ export default function GanttTaskNameMenu({
   const { width: winW, height: winH } = useWindowDimensions();
   const [step, setStep] = useState("menu");
   const [delayDays, setDelayDays] = useState(1);
+  const [cascadePhase, setCascadePhase] = useState(false);
   const [renameText, setRenameText] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const hasPhase = Boolean(task?.phaseId);
+  const followerCount = task?.followerCount ?? 0;
+  const phaseName = task?.phaseName || "this phase";
 
   useEffect(() => {
     if (visible && task) {
       setStep("menu");
       setDelayDays(1);
+      setCascadePhase(false);
       setRenameText(task.name || "");
     }
   }, [visible, task?.id]);
@@ -47,7 +53,7 @@ export default function GanttTaskNameMenu({
   const position = useMemo(() => {
     if (!anchor || !task) return { top: winH / 2 - 120, left: (winW - CARD_W) / 2 };
     const cardH =
-      step === "menu" ? 220 : step === "delay" ? 200 : 220;
+      step === "menu" ? 220 : step === "delay" ? 280 : 220;
     let top = anchor.y + anchor.height + GAP;
     if (top + cardH > winH - 24) {
       top = Math.max(24, anchor.y - cardH - GAP);
@@ -85,7 +91,7 @@ export default function GanttTaskNameMenu({
 
   function handleApplyDelay() {
     if (!task || delayDays < 1) return;
-    run(() => onDelayByDays(task.id, delayDays));
+    run(() => onDelayByDays({ taskId: task.id, days: delayDays, cascadePhase: hasPhase && cascadePhase }));
   }
 
   function handleSaveRename() {
@@ -174,6 +180,23 @@ export default function GanttTaskNameMenu({
                   </Pressable>
                 </View>
                 <Text style={styles.dayLabel}>day{delayDays === 1 ? "" : "s"}</Text>
+
+                {/* Cascade option */}
+                <Pressable
+                  style={[styles.cascadeRow, !hasPhase && styles.cascadeRowDisabled]}
+                  onPress={() => hasPhase && setCascadePhase((v) => !v)}
+                  disabled={busy || !hasPhase}
+                >
+                  <View style={[styles.checkbox, cascadePhase && hasPhase && styles.checkboxChecked]}>
+                    {cascadePhase && hasPhase ? <Text style={styles.checkmark}>✓</Text> : null}
+                  </View>
+                  <Text style={[styles.cascadeLabel, !hasPhase && styles.cascadeLabelDisabled]}>
+                    {hasPhase
+                      ? `Also shift ${followerCount} task${followerCount !== 1 ? "s" : ""} after this in ${phaseName}`
+                      : "Task has no phase"}
+                  </Text>
+                </Pressable>
+
                 <View style={styles.rowBtns}>
                   <Pressable style={styles.secondaryBtn} onPress={() => setStep("menu")} disabled={busy}>
                     <Text style={styles.secondaryBtnText}>Back</Text>
@@ -351,5 +374,45 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
     color: "#fff",
+  },
+  cascadeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    marginBottom: 4,
+  },
+  cascadeRowDisabled: {
+    opacity: 0.4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 2,
+    borderColor: "#111",
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f3f4f6",
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: "#111",
+  },
+  checkmark: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  cascadeLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  cascadeLabelDisabled: {
+    color: colors.textSecondary,
   },
 });

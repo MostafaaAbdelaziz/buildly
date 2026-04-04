@@ -35,6 +35,7 @@ export default function LoginScreen({ navigation }) {
       <Text style={styles.header}>Welcome</Text>
 
       <ThemedTextInput
+        testID="login-email"
         placeholder="Email"
         keyboardType="email-address"
         autoCapitalize="none"
@@ -43,6 +44,7 @@ export default function LoginScreen({ navigation }) {
       />
 
       <ThemedTextInput
+        testID="login-password"
         placeholder="Password"
         secureTextEntry
         value={password}
@@ -50,7 +52,7 @@ export default function LoginScreen({ navigation }) {
       />
 
       <View style={styles.buttonContainer}>
-        <Button title="Sign In" onPress={handleSignIn} />
+        <Button testID="login-sign-in" title="Sign In" onPress={handleSignIn} />
       </View>
 
       <View style={styles.buttonContainer}>

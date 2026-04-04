@@ -5,10 +5,11 @@ import { colors } from "../constants/theme";
 
 const MENU_ITEMS = [
   { key: "invite", label: "Invite Member", icon: "+" },
+  { key: "checkin", label: "Check-in Settings", icon: "⚙\uFE0E" },
   { key: "delete", label: "Delete Site", icon: "×", destructive: true },
 ];
 
-export default function SiteActionsMenu({ onInvite, onDelete }) {
+export default function SiteActionsMenu({ onInvite, onCheckInSettings, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const translate = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
@@ -33,6 +34,8 @@ export default function SiteActionsMenu({ onInvite, onDelete }) {
     setMenuOpen(false);
     if (key === "invite") {
       onInvite?.();
+    } else if (key === "checkin") {
+      onCheckInSettings?.();
     } else if (key === "delete") {
       onDelete?.();
     }

@@ -82,6 +82,18 @@ export async function updateSiteForeman(siteId, foremanEmail) {
   });
 }
 
+export async function updateSiteDescription(siteId, description) {
+  if (!siteId) {
+    throw new Error("siteId is required");
+  }
+  const siteRef = doc(firebase_fs, "sites", siteId);
+  const trimmed = (description ?? "").trim();
+  await updateDoc(siteRef, {
+    description: trimmed || null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function softDeleteSite(siteId) {
   if (!siteId) {
     throw new Error("siteId is required");
@@ -102,6 +114,23 @@ export async function createIssueForSite(issueData) {
     updatedAt: serverTimestamp(),
   });
   return siteRef;
+}
+
+/**
+ * Updates the check-in schedule settings for a site.
+ * @param {string} siteId
+ * @param {{ checkInTime: string, workDays: number[] }} settings
+ *   checkInTime — "HH:MM" in 24h local time
+ *   workDays    — array of ints 0–6 (0=Sun)
+ */
+export async function updateSiteCheckInSettings(siteId, { checkInTime, workDays }) {
+  if (!siteId) throw new Error("siteId is required");
+  const siteRef = doc(firebase_fs, "sites", siteId);
+  await updateDoc(siteRef, {
+    checkInTime,
+    workDays,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function updateIssueStatus(issueId, status) {

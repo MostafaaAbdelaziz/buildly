@@ -1,0 +1,13 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is git-ignored — never commit real values.
+
+# Required: your Firebase/GCP project ID
+project_id = "pm-checking-app"
+
+# Optional overrides
+region             = "northamerica-northeast1"
+scheduler_timezone = "America/Halifax"
+
+# Path to Cloud Functions source (relative to infra/)
+# Only change this if you moved the functions/ directory
+functions_source_dir = "../functions"

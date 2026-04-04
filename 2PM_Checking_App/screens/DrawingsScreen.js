@@ -228,7 +228,7 @@ export default function DrawingsScreen({ navigation, route }) {
   const listError = foldersError || (currentFolder && drawingsError);
 
   return (
-    <Screen>
+    <Screen edges={[]}>
       <View style={styles.container}>
         <Text style={styles.header}>{siteName ? `${siteName} — Drawings` : "Drawings"}</Text>
 

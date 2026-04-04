@@ -1,0 +1,40 @@
+# Worker/foreman: site → Daily check-in → Not ready → Create Issue → Save.
+# Requires local time 14:00–14:59 (TwoPMCheckScreen only shows Ready / Not ready then).
+# Env: APP_ID, E2E_EMAIL, E2E_PASSWORD (worker account), SITE_NAME, ISSUE_TITLE (optional title)
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: false
+- runFlow:
+    file: ../subflows/login.yaml
+- scrollUntilVisible:
+    element:
+      text: ${SITE_NAME}
+    direction: DOWN
+    timeout: 20000
+- tapOn: ${SITE_NAME}
+- scrollUntilVisible:
+    element:
+      id: site-daily-checkin
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: site-daily-checkin
+- extendedWaitUntil:
+    visible:
+      id: checkin-not-ready
+    timeout: 120000
+- tapOn:
+    id: checkin-not-ready
+- extendedWaitUntil:
+    visible: "Create Issue"
+    timeout: 15000
+- tapOn:
+    id: issue-title-input
+- inputText: ${ISSUE_TITLE}
+- hideKeyboard
+- tapOn:
+    id: issue-save
+- extendedWaitUntil:
+    visible: "You're set for today"
+    timeout: 15000

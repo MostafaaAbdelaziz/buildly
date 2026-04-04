@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform } from "react-native";
+import React, { useRef, useState } from "react";
+import { Animated, Pressable, View, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
 import WeatherRiskWidget from "../components/WeatherRiskWidget";
 import { colors } from "../constants/theme";
@@ -7,13 +8,19 @@ import NeobrutalDialog from "../components/NeobrutalDialog";
 import DashboardCollapsibleSection from "../components/DashboardCollapsibleSection";
 import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
+import { useNotifications } from "../hooks/useNotifications";
+import { useSiteMembers } from "../hooks/useSiteMembers";
 import Card from "../components/Card";
 import AppText from "../components/AppText";
+import NotificationsDrawer from "../components/NotificationsDrawer";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function PMDashboard({ navigation }) {
   const { user } = useAuth();
   const { sites, loading: sitesLoading } = useSites(user?.uid);
+  const { notifications, markRead } = useNotifications(user?.uid);
+  const { handleAccept, handleReject } = useSiteMembers({ uid: user?.uid, name: user?.email ?? "" });
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [sitesCollapsed, setSitesCollapsed] = useState(false);
   const [pmCheckCollapsed, setPmCheckCollapsed] = useState(true);
   const [weatherCollapsed, setWeatherCollapsed] = useState(true);
@@ -27,6 +34,30 @@ export default function PMDashboard({ navigation }) {
       padding={{ paddingHorizontal: 0, paddingVertical: 0 }}
       style={{ backgroundColor: "#F6F4EE" }}
     >
+      <NotificationsDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        notifications={notifications}
+        onAccept={async (notif) => {
+          await handleAccept(notif.membershipId, notif.id);
+        }}
+        onReject={async (notif) => {
+          await handleReject(notif.membershipId, notif.id);
+        }}
+        onViewIssue={(issueId) => {
+          navigation.navigate("IssueDetail", {
+            issue: {
+              id: issueId,
+              title: "",
+              priority: "Medium",
+              status: "Open",
+              description: "",
+              createdAt: "",
+            },
+          });
+        }}
+      />
+
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
@@ -35,6 +66,10 @@ export default function PMDashboard({ navigation }) {
           <AppText variant="title" bold style={styles.screenTitle}>
             Dashboard
           </AppText>
+          <NeobrutalNotificationButton
+            count={notifications.length}
+            onPress={() => setDrawerOpen(true)}
+          />
         </View>
 
         <DashboardCollapsibleSection
@@ -98,7 +133,21 @@ export default function PMDashboard({ navigation }) {
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.navRow}
-            onPress={() => navigation.navigate("2PMCheck")}
+            onPress={() => {
+              if (sites.length === 0) {
+                Alert.alert("No sites", "Add a site first, then open check-in from that site.");
+                return;
+              }
+              if (sites.length === 1) {
+                const s = sites[0];
+                navigation.navigate("2PMCheck", { siteId: s.id, siteName: s.name });
+                return;
+              }
+              Alert.alert(
+                "Choose a site",
+                "Open a site from the list above, then tap Daily check-in on the site screen."
+              );
+            }}
           >
             <AppText variant="body" bold>
               Open today&apos;s check-in
@@ -162,6 +211,48 @@ export default function PMDashboard({ navigation }) {
   );
 }
 
+function NeobrutalNotificationButton({ count, onPress }) {
+  const translate = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+  const handlePressIn = () => {
+    Animated.timing(translate, { toValue: { x: 4, y: 4 }, duration: 80, useNativeDriver: true }).start();
+  };
+  const handlePressOut = () => {
+    Animated.timing(translate, { toValue: { x: 0, y: 0 }, duration: 80, useNativeDriver: true }).start();
+  };
+
+  return (
+    <View style={styles.notifWrapper}>
+      <View style={styles.notifShadow} />
+      <Pressable
+        testID="header-notifications"
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={onPress}
+        style={styles.notifPressable}
+        accessibilityRole="button"
+        accessibilityLabel="Notifications"
+      >
+        <Animated.View
+          style={[
+            styles.notifFace,
+            { transform: [{ translateX: translate.x }, { translateY: translate.y }] },
+          ]}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.text} />
+        </Animated.View>
+      </Pressable>
+      {count > 0 ? (
+        <View style={styles.notifBadge}>
+          <AppText variant="caption" bold style={styles.notifBadgeText}>
+            {count > 9 ? "9+" : String(count)}
+          </AppText>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   content: {
     paddingBottom: 28,
@@ -171,9 +262,63 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     paddingHorizontal: 20,
     paddingBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
   },
   screenTitle: {
+    flex: 1,
     color: colors.text,
+  },
+  notifWrapper: {
+    position: "relative",
+    width: 40,
+    height: 40,
+  },
+  notifShadow: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: "#919191",
+    borderWidth: 3,
+    borderColor: "#919191",
+    borderRadius: 8,
+  },
+  notifPressable: {
+    position: "relative",
+    width: "100%",
+    height: "100%",
+  },
+  notifFace: {
+    width: 40,
+    height: 40,
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#F6F4EE",
+  },
+  notifBadgeText: {
+    color: "#fff",
+    fontSize: 10,
   },
 
   firstSection: {

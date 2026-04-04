@@ -254,19 +254,25 @@ export default function GanttChart({ title = "TIMELINE", tasks = [], phaseGroups
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       const node = taskRowRefs.current[task.id];
       const mode = canEditTasks ? "actions" : "preview";
+      const meta = canEditTasks && taskActions?.resolveTaskMeta
+        ? taskActions.resolveTaskMeta(task.id)
+        : { phaseId: null, phaseName: null, followerCount: 0 };
+
+      const taskEntry = { id: task.id, name: task.name, ...meta };
+
       if (node && typeof node.measureInWindow === "function") {
         node.measureInWindow((x, y, width, height) => {
           setTaskMenu({
-            task: { id: task.id, name: task.name },
+            task: taskEntry,
             anchor: { x, y, width, height: height || ROW_HEIGHT },
             mode,
           });
         });
       } else {
-        setTaskMenu({ task: { id: task.id, name: task.name }, anchor: null, mode });
+        setTaskMenu({ task: taskEntry, anchor: null, mode });
       }
     },
-    [canEditTasks]
+    [canEditTasks, taskActions]
   );
 
   const closeTaskMenu = useCallback(() => setTaskMenu(null), []);

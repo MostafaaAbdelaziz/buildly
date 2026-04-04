@@ -1,0 +1,38 @@
+# PM: open a site → Check-in settings → save.
+# Env: APP_ID (Android Expo Go: host.exp.exponent | iOS Expo Go: host.exp.Exponent)
+#      E2E_EMAIL, E2E_PASSWORD (PM account), SITE_NAME (exact site title on dashboard card)
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: false
+- runFlow:
+    file: ../subflows/login.yaml
+- scrollUntilVisible:
+    element:
+      text: "Sites"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: ${SITE_NAME}
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- tapOn: ${SITE_NAME}
+- scrollUntilVisible:
+    element:
+      id: site-checkin-settings
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: site-checkin-settings
+- extendedWaitUntil:
+    visible: "Check-in Settings"
+    timeout: 15000
+- tapOn:
+    id: checkin-settings-save
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible:
+      id: site-daily-checkin
+    timeout: 15000

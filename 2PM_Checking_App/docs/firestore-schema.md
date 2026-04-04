@@ -268,6 +268,34 @@ In-app notifications for users. Currently used for site invitations. Listened to
 
 ---
 
+### 10. `daily_check_ins` (Daily 2:00 PM check-in)
+
+One document per **site** × **local calendar day** × **user**. Document ID is deterministic: `{siteId}_{localDate}_{userId}` where `localDate` is `YYYY-MM-DD` in the **device local** timezone (same string stored in fields for querying).
+
+**Fields:**
+- `siteId` (string, required)
+- `userId` (string, required) - Firebase Auth UID; must match the authenticated user on write
+- `localDate` (string, required) - `YYYY-MM-DD` (local calendar day)
+- `status` (string, required) - `"on_track"` | `"not_on_track"`
+- `submittedAt` (timestamp) - Server time when saved
+
+**Queries:** Composite index on `(siteId, localDate)` for listing all check-ins for a site on a given day (manager attendance view).
+
+**Roster (who is expected):** `sites.projectManagerId` plus every **ACTIVE** `site_members` row for that site (deduplicated). Implemented in app code (`buildExpectedCheckInUserIds` in `services/dailyCheckInRepository.js`).
+
+**Example:**
+```json
+{
+  "siteId": "site123",
+  "userId": "uid_worker",
+  "localDate": "2026-04-02",
+  "status": "on_track",
+  "submittedAt": "2026-04-02T14:05:00Z"
+}
+```
+
+---
+
 ## Data Relationships
 
 ```
@@ -287,6 +315,7 @@ Phase Template (phase_templates) - standalone, reusable across sites
 
 Site Member (site_members) - links users to sites with a role + invite status
 Notification (notifications) - per-user inbox; SITE_INVITE type links to site_members
+Daily check-in (daily_check_ins) - one per site × local day × user; PM can read all for a site/day
 ```
 
 ---
@@ -395,9 +424,44 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Daily check-ins: author or site project manager may read; doc id must match fields
+    function dailyCheckInIdMatchesData(siteId, localDate, userId) {
+      return siteId + '_' + localDate + '_' + userId;
+    }
+    function isSiteProjectManager(siteId) {
+      return exists(/databases/$(database)/documents/sites/$(siteId)) &&
+        get(/databases/$(database)/documents/sites/$(siteId)).data.projectManagerId == request.auth.uid;
+    }
+    match /daily_check_ins/{checkInId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isSiteProjectManager(resource.data.siteId)
+      );
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['siteId', 'userId', 'localDate', 'status', 'submittedAt']) &&
+        request.resource.data.status in ['on_track', 'not_on_track'] &&
+        checkInId == dailyCheckInIdMatchesData(
+          request.resource.data.siteId,
+          request.resource.data.localDate,
+          request.resource.data.userId
+        );
+      allow update: if isSignedIn() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        checkInId == dailyCheckInIdMatchesData(
+          request.resource.data.siteId,
+          request.resource.data.localDate,
+          request.resource.data.userId
+        );
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
   }
 }
 ```
+
+Authoritative copy: [`firestore.rules`](../firestore.rules) at project root (includes `site_members` invite/removal rules not shown above).

@@ -1197,7 +1197,7 @@ export default function SiteSchedulesScreen() {
   }
 
   return (
-    <Screen padding={{}}>
+    <Screen padding={{}} edges={[]}>
       <ScrollView
         style={s.scrollView}
         contentContainerStyle={[s.container, { paddingBottom: tabBarPadding, paddingTop: 16, paddingHorizontal: 16 }]}

@@ -14,7 +14,8 @@ import { useUserEmail } from "../hooks/useUserEmail";
 import { useActiveSiteMembers } from "../hooks/useActiveSiteMembers";
 import { useSiteMembers } from "../hooks/useSiteMembers";
 import { useAuth } from "../context/AuthContext";
-import { softDeleteSite, updateSiteForeman } from "../services/siteRepository";
+import { softDeleteSite, updateSiteForeman, updateSiteDescription } from "../services/siteRepository";
+import NeobrutalDialog from "../components/NeobrutalDialog";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import { useSiteCurrentTask } from "../hooks/useSiteCurrentTask";
 import { useIssues } from "../context/IssuesContext";
@@ -117,7 +118,9 @@ export default function SiteDetailScreen({ navigation }) {
 
   const { handleRemove } = useSiteMembers({ uid: user?.uid ?? "", name: user?.email ?? "" });
 
-  const [setDeleting] = useState(false);
+  const [, setDeleting] = useState(false);
+  const [editSummaryOpen, setEditSummaryOpen] = useState(false);
+  const [summaryDraft, setSummaryDraft] = useState("");
   const address = site?.address || {};
   const { currentTask, loading: currentTaskLoading } = useSiteCurrentTask(siteId);
 
@@ -222,6 +225,9 @@ export default function SiteDetailScreen({ navigation }) {
                   onInvite={() =>
                     navigation.navigate("InviteMember", { siteId, siteName: site.name })
                   }
+                  onCheckInSettings={() =>
+                    navigation.navigate("SiteCheckInSettings", { siteId, siteName: site.name })
+                  }
                   onDelete={handleDeleteSite}
                 />
               )}
@@ -299,13 +305,22 @@ export default function SiteDetailScreen({ navigation }) {
                   </Pressable>
                 </View>
 
-                <NeobrutalInfoCard variant="stacked">
-                  <InfoSection title="Summary">
-                    <AppText variant="body" style={styles.description}>
-                      {site.description || "No summary available for this site."}
-                    </AppText>
-                  </InfoSection>
-                </NeobrutalInfoCard>
+                <Pressable
+                  disabled={!isManager}
+                  onPress={() => {
+                    setSummaryDraft(site?.description ?? "");
+                    setEditSummaryOpen(true);
+                  }}
+                  style={({ pressed }) => (isManager && pressed ? styles.summaryPressablePressed : undefined)}
+                >
+                  <NeobrutalInfoCard variant="stacked">
+                    <InfoSection title={isManager ? "Summary (tap to edit)" : "Summary"}>
+                      <AppText variant="body" style={styles.description}>
+                        {site.description || "No summary available for this site."}
+                      </AppText>
+                    </InfoSection>
+                  </NeobrutalInfoCard>
+                </Pressable>
 
                 <View style={styles.buttonsRow}>
                   <Button
@@ -337,6 +352,34 @@ export default function SiteDetailScreen({ navigation }) {
                     }
                     style={styles.scheduleButton}
                   />
+
+                <Button
+                  testID="site-daily-checkin"
+                  variant="primary"
+                  title="Daily check-in"
+                  onPress={() =>
+                    navigation.navigate("2PMCheck", {
+                      siteId,
+                      siteName: site.name,
+                    })
+                  }
+                  style={styles.scheduleButton}
+                />
+                {user?.uid === site.projectManagerId ? (
+                  <>
+                    <Button
+                      variant="secondary"
+                      title={"Today's check-in status"}
+                      onPress={() =>
+                        navigation.navigate("SiteDailyCheckIn", {
+                          siteId,
+                          siteName: site.name,
+                        })
+                      }
+                      style={styles.scheduleButton}
+                    />
+                  </>
+                ) : null}
               </>
             )}
 
@@ -367,6 +410,31 @@ export default function SiteDetailScreen({ navigation }) {
           </>
         )}
       </ScrollView>
+
+      <NeobrutalDialog
+        visible={editSummaryOpen}
+        title="Edit summary"
+        description="Short description for this site (shown on dashboards)."
+        inputLabel="Summary"
+        multiline
+        placeholder="How the team refers to this site…"
+        value={summaryDraft}
+        onChangeText={setSummaryDraft}
+        onCancel={() => {
+          setEditSummaryOpen(false);
+          setSummaryDraft("");
+        }}
+        onOk={async () => {
+          if (!siteId) return;
+          try {
+            await updateSiteDescription(siteId, summaryDraft);
+            setEditSummaryOpen(false);
+            setSummaryDraft("");
+          } catch (err) {
+            Alert.alert("Error", err.message || "Failed to update summary.");
+          }
+        }}
+      />
     </Screen>
   );
 }
@@ -396,6 +464,9 @@ const styles = StyleSheet.create({
   },
   description: {
     opacity: 0.9,
+  },
+  summaryPressablePressed: {
+    opacity: 0.92,
   },
   infoCard: {
     marginBottom: 12,

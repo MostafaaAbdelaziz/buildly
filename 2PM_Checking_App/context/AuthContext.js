@@ -3,6 +3,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { firebase_auth } from "../firebaseConfig/firebaseConfig";
 import { getUserRole } from "../services/userService";
 import { set } from "firebase/database";
+import { useFcmToken } from "../hooks/useFcmToken";
+import { useCheckInReminder } from "../hooks/useCheckInReminder";
 
 const AuthContext = createContext(null);
 
@@ -36,6 +38,9 @@ export function AuthProvider({ children }) {
 
     return unsub;
   }, []);
+
+  useFcmToken(user?.uid ?? null);
+  useCheckInReminder(user?.uid ?? null);
 
   const value = { user, role, loading };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
