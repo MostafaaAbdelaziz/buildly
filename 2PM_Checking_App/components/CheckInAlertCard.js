@@ -17,7 +17,11 @@ export default function CheckInAlertCard({ notification, onViewIssue }) {
   const { siteName, reporterEmail, status, issueId, localDate } = notification;
 
   return (
-    <View style={styles.wrapper}>
+    <TouchableOpacity
+      style={styles.wrapper}
+      activeOpacity={issueId ? 0.7 : 1}
+      onPress={issueId ? () => onViewIssue?.(issueId) : undefined}
+    >
       <View style={styles.shadow} />
       <View style={styles.card}>
         <View style={styles.headerRow}>
@@ -55,7 +59,7 @@ export default function CheckInAlertCard({ notification, onViewIssue }) {
           </AppText>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

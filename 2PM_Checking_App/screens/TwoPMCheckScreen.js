@@ -36,7 +36,14 @@ export default function TwoPMCheckScreen({ navigation }) {
   const { site, loading: siteLoading, error: siteError } = useSiteDetail(siteId);
   const { members, loading: membersLoading } = useActiveSiteMembers(siteId);
 
-  const isTwoPM = hours === 14 && minutes < 60;
+  // Use site's configured check-in hour, fall back to 14 (2PM)
+  const checkInHour = useMemo(() => {
+    if (!site?.checkInTime) return 14;
+    const [h] = site.checkInTime.split(":").map(Number);
+    return h;
+  }, [site?.checkInTime]);
+
+  const isTwoPM = hours === checkInHour;
 
   const todayLabel = useMemo(() => {
     return new Date().toLocaleDateString("en-US", {

@@ -61,11 +61,6 @@ export default function MapScreen({ route, navigation }) {
       .filter((x) => x.coord);
   }, [sites]);
 
-  const mapKey = useMemo(() => {
-    const lastId = issues?.[0]?.id || "none";
-    return `${issues?.length || 0}_${sites?.length || 0}_${lastId}_${mode}`;
-  }, [issues, sites, mode]);
-
   const initialRegion = useMemo(() => {
     if (picked) {
       return { ...picked, latitudeDelta: 0.05, longitudeDelta: 0.05 };
@@ -112,7 +107,6 @@ export default function MapScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <MapView
-        key={mapKey}
         style={styles.map}
         initialRegion={initialRegion}
         onPress={(e) => {

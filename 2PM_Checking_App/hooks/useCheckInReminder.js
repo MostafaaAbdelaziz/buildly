@@ -38,6 +38,8 @@ export function useCheckInReminder(uid) {
       const [hour, minute] = site.checkInTime.split(":").map(Number);
       const workDays = site.workDays ?? [1, 2, 3, 4, 5]; // default Mon–Fri
 
+      const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
       // Schedule one notification per workday
       await Promise.all(
         workDays.map((weekday) =>
@@ -57,6 +59,12 @@ export function useCheckInReminder(uid) {
             },
           })
         )
+      );
+
+      const pad = (n) => String(n).padStart(2, "0");
+      const dayLabels = workDays.map((d) => DAY_NAMES[d]).join(", ");
+      console.log(
+        `[CheckInReminder] "${site.name ?? site.id}" → every ${dayLabels} at ${pad(hour)}:${pad(minute)}`
       );
     }
 

@@ -1,99 +1,79 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from "react-native";
-import { useIssues } from "../context/IssuesContext";
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { updateIssueStatus } from "../services/siteRepository";
+import { useFirestoreIssueById } from "../hooks/useFirestoreIssues";
 
 const STATUSES = ["Open", "In Progress", "Resolved"];
 
 export default function IssueDetailScreen({ route, navigation }) {
-  const { issue } = route.params;
-  const { issues, trash, updateIssue, softDeleteIssue, restoreIssue } = useIssues();
-
-  const currentIssue = useMemo(() => {
-    return (
-      (issues || []).find((i) => i.id === issue.id) ||
-      (trash || []).find((i) => i.id === issue.id) ||
-      issue
-    );
-  }, [issues, trash, issue]);
-
-  const isTrashed = useMemo(() => {
-    return (trash || []).some((i) => i.id === currentIssue.id);
-  }, [trash, currentIssue.id]);
+  const issueId = route.params?.issueId ?? route.params?.issue?.id;
+  const { issue, loading } = useFirestoreIssueById(issueId);
 
   async function updateStatus(newStatus) {
     try {
-      await updateIssueStatus(currentIssue.id, newStatus);
-      updateIssue(currentIssue.id, { status: newStatus });
-
-      if (newStatus === "Resolved") {
-        softDeleteIssue(currentIssue.id);
-        navigation.goBack();
-        return;
-      }
-
-      navigation.setOptions({ title: newStatus });
+      await updateIssueStatus(issueId, newStatus);
     } catch (err) {
       Alert.alert("Error", err.message || "Failed to update issue status.");
     }
   }
 
-  function confirmRestore() {
-    Alert.alert("Restore", "Restore this issue back to Current issues?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Restore",
-        onPress: () => {
-          if (restoreIssue) restoreIssue(currentIssue.id);
-          navigation.goBack();
-        },
-      },
-    ]);
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
 
-  function confirmMoveToTrash() {
-    Alert.alert("Move to Trash", "Do you want to move this issue to Trash?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Move",
-        style: "destructive",
-        onPress: () => {
-          softDeleteIssue(currentIssue.id);
-          navigation.goBack();
-        },
-      },
-    ]);
+  if (!issue) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Issue not found</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
+
+  const isTrashed = issue.deleted === true;
+  const createdAtLabel = issue.createdAt?.toDate
+    ? issue.createdAt.toDate().toLocaleString()
+    : issue.createdAt ?? "";
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{currentIssue.title}</Text>
+      <Text style={styles.title}>{issue.title}</Text>
 
       <View style={styles.infoBlock}>
-        <Text style={styles.line}>Priority: {currentIssue.priority}</Text>
-        <Text style={styles.line}>Status: {currentIssue.status}</Text>
-        <Text style={styles.line}>Created: {currentIssue.createdAt}</Text>
+        <Text style={styles.line}>Priority: {issue.priority}</Text>
+        <Text style={styles.line}>Status: {issue.status}</Text>
+        <Text style={styles.line}>Created: {createdAtLabel}</Text>
 
-        <Text style={[styles.line, { marginTop: 10, fontWeight: "800" }]}>
-          Description
-        </Text>
+        <Text style={[styles.line, { marginTop: 10, fontWeight: "800" }]}>Description</Text>
         <Text style={{ marginBottom: 8 }}>
-          {currentIssue.description || "No description provided."}
+          {issue.description || "No description provided."}
         </Text>
 
-        {currentIssue.image ? (
-          <Image source={{ uri: currentIssue.image }} style={styles.photo} />
+        {issue.image ? (
+          <Image source={{ uri: issue.image }} style={styles.photo} />
         ) : null}
       </View>
 
       {!isTrashed && (
         <>
           <Text style={styles.sectionTitle}>Update status</Text>
-
           <View style={styles.row}>
             {STATUSES.map((status) => {
-              const active = currentIssue.status === status;
-
+              const active = issue.status === status;
               return (
                 <TouchableOpacity
                   key={status}
@@ -110,18 +90,8 @@ export default function IssueDetailScreen({ route, navigation }) {
         </>
       )}
 
-      {isTrashed ? (
-        <TouchableOpacity style={[styles.backBtn, styles.restoreBtn]} onPress={confirmRestore}>
-          <Text style={styles.backText}>Restore Issue</Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity style={[styles.backBtn, styles.trashBtn]} onPress={confirmMoveToTrash}>
-          <Text style={styles.backText}>Move to Trash</Text>
-        </TouchableOpacity>
-      )}
-
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>Back to Issues</Text>
+        <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
     </View>
   );
@@ -165,11 +135,4 @@ const styles = StyleSheet.create({
     backgroundColor: "#333",
   },
   backText: { color: "white", fontWeight: "700", textAlign: "center" },
-
-  trashBtn: {
-    backgroundColor: "#B00020",
-  },
-  restoreBtn: {
-    backgroundColor: "#0A7D2C",
-  },
 });

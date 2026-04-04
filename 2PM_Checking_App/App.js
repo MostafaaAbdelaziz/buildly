@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import { NavigationContainer } from "@react-navigation/native";
+import { createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import TabsNavigator from "./navigation/TabNavigator";
@@ -37,13 +38,27 @@ Notifications.setNotificationHandler({
 });
 
 const Stack = createNativeStackNavigator();
+const navigationRef = createNavigationContainerRef();
 
 export default function App() {
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.siteId && navigationRef.isReady()) {
+        navigationRef.navigate("2PMCheck", {
+          siteId: data.siteId,
+          siteName: data.siteName ?? "",
+        });
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <AuthProvider>
       <IssuesProvider>
         <ScheduleProvider>
-          <NavigationContainer>
+          <NavigationContainer ref={navigationRef}>
             <Stack.Navigator initialRouteName="Login">
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
               <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />

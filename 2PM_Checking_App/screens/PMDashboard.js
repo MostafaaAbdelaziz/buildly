@@ -45,16 +45,7 @@ export default function PMDashboard({ navigation }) {
           await handleReject(notif.membershipId, notif.id);
         }}
         onViewIssue={(issueId) => {
-          navigation.navigate("IssueDetail", {
-            issue: {
-              id: issueId,
-              title: "",
-              priority: "Medium",
-              status: "Open",
-              description: "",
-              createdAt: "",
-            },
-          });
+          navigation.navigate("IssueDetail", { issueId });
         }}
       />
 

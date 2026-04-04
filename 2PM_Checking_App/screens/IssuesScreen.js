@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from "react-native";
-import { useIssues } from "../context/IssuesContext";
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { useFirestoreIssues } from "../hooks/useFirestoreIssues";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
@@ -9,38 +9,17 @@ import Card from "../components/Card";
 import { colors } from "../constants/theme";
 
 export default function IssuesScreen({ navigation, route }) {
-  const { issues, trash, clearTrash } = useIssues();
   const siteId = route?.params?.siteId || null;
   const siteName = route?.params?.siteName || "Site";
   const { role } = useAuth();
   const [tab, setTab] = useState("current");
   const isManager = role === "manager";
 
-  const siteIssues = issues.filter((issue) => (issue?.siteId || null) === siteId);
-  const siteTrash = trash.filter((issue) => (issue?.siteId || null) === siteId);
-  const currentIssues = siteIssues.filter((issue) => issue.status?.toLowerCase() !== "closed");
-  const closedIssues = siteIssues.filter((issue) => issue.status?.toLowerCase() === "closed");
-  const data = tab === "current" ? currentIssues : [...closedIssues, ...siteTrash];
+  const { issues, loading } = useFirestoreIssues(siteId);
 
-  function confirmEmptyTrash() {
-    if (!isManager) {
-      Alert.alert("Access denied", "Only managers can empty the trash.");
-      return;
-    }
-    if (!trash || trash.length === 0) {
-      Alert.alert("Trash", "Trash is already empty.");
-      return;
-    }
-
-    Alert.alert("Empty Trash", "Delete all trashed issues permanently?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Empty Trash",
-        style: "destructive",
-        onPress: () => clearTrash?.(),
-      },
-    ]);
-  }
+  const currentIssues = issues.filter((issue) => issue.status?.toLowerCase() !== "resolved" && issue.status?.toLowerCase() !== "closed");
+  const closedIssues = issues.filter((issue) => issue.status?.toLowerCase() === "resolved" || issue.status?.toLowerCase() === "closed");
+  const data = tab === "current" ? currentIssues : closedIssues;
 
   function getPriorityColor(priority) {
     const p = priority?.toLowerCase();
@@ -86,7 +65,9 @@ export default function IssuesScreen({ navigation, route }) {
               </AppText>
             </View>
             <AppText variant="caption">•</AppText>
-            <AppText variant="caption">{item.createdAt}</AppText>
+            <AppText variant="caption">
+          {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : item.createdAt}
+        </AppText>
           </View>
 
           {item.createdBy && (
@@ -99,19 +80,14 @@ export default function IssuesScreen({ navigation, route }) {
     );
   }
 
+  if (loading) {
+    return (
+      <Screen edges={[]}><ActivityIndicator style={{ marginTop: 40 }} /></Screen>
+    );
+  }
+
   return (
     <Screen edges={[]}>
-      {isManager && siteTrash.length > 0 && (
-        <Button
-          variant="tertiary"
-          tone="negative"
-          title={`Empty Trash (${siteTrash.length})`}
-          onPress={confirmEmptyTrash}
-          fullWidth
-          style={styles.emptyTrashBtn}
-        />
-      )}
-      
       <View style={styles.header}>
         <AppText variant="title" bold>{siteName}</AppText>
         <Button
@@ -153,7 +129,7 @@ export default function IssuesScreen({ navigation, route }) {
             bold
             style={[styles.tabText, tab === "closed" && styles.activeTabText]}
           >
-            Closed ({closedIssues.length + siteTrash.length})
+            Closed ({closedIssues.length})
           </AppText>
         </TouchableOpacity>
       </View>
@@ -182,10 +158,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
-  },
-
-  emptyTrashBtn: {
-    marginBottom: 12,
   },
 
   tabs: {
