@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Animated, Pressable, View, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from "react-native";
+import { Animated, Pressable, View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
 import WeatherRiskWidget from "../components/WeatherRiskWidget";
@@ -22,9 +22,7 @@ export default function PMDashboard({ navigation }) {
   const { handleAccept, handleReject } = useSiteMembers({ uid: user?.uid, name: user?.email ?? "" });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sitesCollapsed, setSitesCollapsed] = useState(false);
-  const [pmCheckCollapsed, setPmCheckCollapsed] = useState(true);
   const [weatherCollapsed, setWeatherCollapsed] = useState(true);
-  const [issuesCollapsed, setIssuesCollapsed] = useState(true);
   const [showNewSiteDialog, setShowNewSiteDialog] = useState(false);
   const [newSiteName, setNewSiteName] = useState("");
   const tabBarPadding = useTabBarPadding();
@@ -117,62 +115,12 @@ export default function PMDashboard({ navigation }) {
         </DashboardCollapsibleSection>
 
         <DashboardCollapsibleSection
-          title="2PM Check Status"
-          accentColor="#16a34a"
-          collapsed={pmCheckCollapsed}
-          onToggle={() => setPmCheckCollapsed((v) => !v)}
-        >
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.navRow}
-            onPress={() => {
-              if (sites.length === 0) {
-                Alert.alert("No sites", "Add a site first, then open check-in from that site.");
-                return;
-              }
-              if (sites.length === 1) {
-                const s = sites[0];
-                navigation.navigate("2PMCheck", { siteId: s.id, siteName: s.name });
-                return;
-              }
-              Alert.alert(
-                "Choose a site",
-                "Open a site from the list above, then tap Daily check-in on the site screen."
-              );
-            }}
-          >
-            <AppText variant="body" bold>
-              Open today&apos;s check-in
-            </AppText>
-            <AppText variant="title" style={styles.chevronRight}>
-              ›
-            </AppText>
-          </TouchableOpacity>
-        </DashboardCollapsibleSection>
-
-        <DashboardCollapsibleSection
           title="Weather"
           accentColor="#64748b"
           collapsed={weatherCollapsed}
           onToggle={() => setWeatherCollapsed((v) => !v)}
         >
           <WeatherRiskWidget />
-        </DashboardCollapsibleSection>
-
-        <DashboardCollapsibleSection
-          title="Open issues"
-          accentColor={colors.accent}
-          collapsed={issuesCollapsed}
-          onToggle={() => setIssuesCollapsed((v) => !v)}
-        >
-          <TouchableOpacity activeOpacity={0.85} style={styles.navRow}>
-            <AppText variant="body" bold style={styles.issuesText}>
-              5 open issues today
-            </AppText>
-            <AppText variant="title" style={styles.chevronRight}>
-              ›
-            </AppText>
-          </TouchableOpacity>
         </DashboardCollapsibleSection>
 
         <View style={{ height: 24 }} />
@@ -319,21 +267,6 @@ const styles = StyleSheet.create({
 
   sectionBody: {
     gap: 14,
-  },
-
-  navRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  chevronRight: {
-    fontSize: 22,
-    color: colors.textSecondary,
-    marginTop: Platform.OS === "ios" ? -1 : 0,
-  },
-  issuesText: {
-    flex: 1,
   },
 
   siteCardHeader: {

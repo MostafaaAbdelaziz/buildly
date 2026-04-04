@@ -219,13 +219,11 @@ export default function CreateIssueScreen({ navigation, route }) {
   }
 
   return (
-    <Screen>
+    <Screen edges={[]} padding={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 0 }}>
       <ScrollView 
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
       >
-        <AppText variant="title" bold>Create Issue</AppText>
-
         {siteIdFromRoute ? (
           <View style={styles.section}>
             <AppText variant="body" bold style={styles.sectionLabel}>

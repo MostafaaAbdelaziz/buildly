@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Alert,
   Image,
-  Pressable,
   ScrollView,
 } from "react-native";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -17,6 +16,7 @@ import Card from "../components/Card";
 import { colors } from "../constants/theme";
 
 const STATUSES = ["Open", "In Progress", "Resolved"];
+const STATUS_LABEL = { Open: "Open", "In Progress": "Ongoing", Resolved: "Done" };
 
 function useFirestoreIssueRealtime(issueId) {
   const [issue, setIssue] = useState(null);
@@ -61,14 +61,7 @@ export default function IssueDetailScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <Screen padding={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
-        >
-          <AppText variant="body" bold>← Back</AppText>
-        </Pressable>
+      <Screen edges={[]} padding={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 0 }}>
         <Button variant="secondary" title="Loading…" disabled />
       </Screen>
     );
@@ -76,14 +69,7 @@ export default function IssueDetailScreen({ route, navigation }) {
 
   if (!issue) {
     return (
-      <Screen padding={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
-        >
-          <AppText variant="body" bold>← Back</AppText>
-        </Pressable>
+      <Screen edges={[]} padding={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 0 }}>
         <AppText variant="body">Issue not found.</AppText>
       </Screen>
     );
@@ -95,19 +81,8 @@ export default function IssueDetailScreen({ route, navigation }) {
     : issue.createdAt ?? "";
 
   return (
-    <Screen padding={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+    <Screen edges={[]} padding={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 0 }}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Back button */}
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
-        >
-          <AppText variant="body" bold>← Back</AppText>
-        </Pressable>
-
         {/* Title */}
         <AppText variant="title" bold style={styles.title}>
           {issue.title}
@@ -119,7 +94,7 @@ export default function IssueDetailScreen({ route, navigation }) {
           <AppText variant="body" bold style={styles.fieldValue}>{issue.priority}</AppText>
 
           <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Status</AppText>
-          <AppText variant="body" bold style={styles.fieldValue}>{issue.status}</AppText>
+          <AppText variant="body" bold style={styles.fieldValue}>{STATUS_LABEL[issue.status] ?? issue.status}</AppText>
 
           <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Created</AppText>
           <AppText variant="body" style={styles.fieldValue}>{createdAtLabel}</AppText>
@@ -155,7 +130,7 @@ export default function IssueDetailScreen({ route, navigation }) {
                 return (
                   <View key={status} style={styles.statusBtn}>
                     <Button
-                      title={status}
+                      title={STATUS_LABEL[status] ?? status}
                       variant={active ? "primary" : "secondary"}
                       tone={status === "Open" ? "negative" : "positive"}
                       size="sm"
@@ -174,15 +149,6 @@ export default function IssueDetailScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  backHit: {
-    paddingVertical: 4,
-    paddingRight: 4,
-    alignSelf: "flex-start",
-    marginBottom: 12,
-  },
-  backPressed: {
-    opacity: 0.7,
-  },
   title: {
     marginBottom: 16,
   },

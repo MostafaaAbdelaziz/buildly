@@ -12,6 +12,7 @@ import { useFirestoreIssuesBySites } from "../hooks/useFirestoreIssues";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
+import Button from "../components/Button";
 import Card from "../components/Card";
 import { colors } from "../constants/theme";
 
@@ -109,7 +110,7 @@ export default function AllIssuesScreen({ navigation }) {
             </AppText>
             <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
               <AppText variant="caption" style={{ color: statusStyle.color }}>
-                {item.status?.toUpperCase()}
+                {({ "In Progress": "ONGOING", Resolved: "DONE" }[item.status] ?? item.status?.toUpperCase())}
               </AppText>
             </View>
           </View>
@@ -141,18 +142,23 @@ export default function AllIssuesScreen({ navigation }) {
 
   if (loading) {
     return (
-      <Screen edges={[]}>
+      <Screen>
         <ActivityIndicator style={{ marginTop: 40 }} />
       </Screen>
     );
   }
 
   return (
-    <Screen edges={[]}>
+    <Screen>
       <View style={styles.header}>
         <AppText variant="title" bold>
           Issues
         </AppText>
+        <Button
+          variant="primary"
+          title="+ Add"
+          onPress={() => navigation.getParent()?.navigate("CreateIssue")}
+        />
       </View>
 
       <View style={styles.tabs}>
