@@ -102,10 +102,6 @@ const memberRowStyles = StyleSheet.create({
 
 const DEV_HAS_SCHEDULES = true;
 
-//TO BE DONE LEFT FOR SITE DASHBOARD
-const MOCK_STATUS = "On Track";
-const MOCK_DAYS = 42;
-
 export default function SiteDetailScreen({ navigation }) {
   const route = useRoute();
   const { siteId } = route.params || {};
@@ -122,7 +118,24 @@ export default function SiteDetailScreen({ navigation }) {
   const [editSummaryOpen, setEditSummaryOpen] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState("");
   const address = site?.address || {};
-  const { currentTask, loading: currentTaskLoading } = useSiteCurrentTask(siteId);
+  const { currentTask, tasks: allTasks, loading: currentTaskLoading } = useSiteCurrentTask(siteId);
+
+  const daysToCompletion = React.useMemo(() => {
+    if (!allTasks || allTasks.length === 0) return null;
+    // Find the latest endDate across all tasks
+    let latestEnd = null;
+    for (const t of allTasks) {
+      if (t.endDate) {
+        if (!latestEnd || t.endDate > latestEnd) latestEnd = t.endDate;
+      }
+    }
+    if (!latestEnd) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(latestEnd);
+    end.setHours(0, 0, 0, 0);
+    return Math.ceil((end - today) / 86400000);
+  }, [allTasks]);
 
 
   function handleEditForeman() {
@@ -274,8 +287,19 @@ export default function SiteDetailScreen({ navigation }) {
             ) : (
               <>
                 <View style={styles.circlesRow}>
-                  <StatusCircle label={MOCK_STATUS} caption="status" />
-                  <StatusCircle label={`${MOCK_DAYS} days`} caption="to completion" />
+                  <StatusCircle label={site.status || "Active"} caption="status" />
+                  <StatusCircle
+                    label={
+                      currentTaskLoading
+                        ? "…"
+                        : daysToCompletion === null
+                        ? "—"
+                        : daysToCompletion < 0
+                        ? "Overdue"
+                        : `${daysToCompletion}d`
+                    }
+                    caption="days left"
+                  />
                 </View>
 
                 <View style={styles.cardsRow}>
@@ -344,12 +368,14 @@ export default function SiteDetailScreen({ navigation }) {
                  <Button
                     variant="secondary"
                     title= "Issues"
-                    onPress={() =>
-                      navigation.navigate("Issues", {
+                    onPress={() => {
+                      let nav = navigation;
+                      while (nav.getParent?.()) nav = nav.getParent();
+                      nav.navigate("Issues", {
                         siteId,
                         siteName: site.name,
-                      })
-                    }
+                      });
+                    }}
                     style={styles.scheduleButton}
                   />
 

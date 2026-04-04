@@ -8,6 +8,7 @@ import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import NeobrutalInfoCard from "../components/NeobrutalInfoCard";
 import { colors } from "../constants/theme";
 import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 import { useSiteDetail } from "../hooks/useSiteDetail";
@@ -36,7 +37,6 @@ export default function TwoPMCheckScreen({ navigation }) {
   const { site, loading: siteLoading, error: siteError } = useSiteDetail(siteId);
   const { members, loading: membersLoading } = useActiveSiteMembers(siteId);
 
-  // Use site's configured check-in hour, fall back to 14:00 (2PM)
   const checkInTimeObj = useMemo(() => {
     if (!site?.checkInTime) return { hour: 14, minute: 0 };
     const [h, m] = site.checkInTime.split(":").map(Number);
@@ -51,15 +51,6 @@ export default function TwoPMCheckScreen({ navigation }) {
     d.setMinutes(checkInTimeObj.minute);
     return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }, [checkInTimeObj]);
-
-  const todayLabel = useMemo(() => {
-    return new Date().toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-  }, []);
 
   const canCheckIn = useMemo(
     () => userCanCheckInForSite(site, members, user?.uid),
@@ -102,7 +93,6 @@ export default function TwoPMCheckScreen({ navigation }) {
       );
 
       if (!isOnTrack && site?.projectManagerId && site.projectManagerId !== user.uid) {
-        // Write in-app alert to PM — fire and forget, don't block the user
         createCheckInAlertNotification(site.projectManagerId, {
           siteId,
           siteName: site.name ?? siteName ?? "",
@@ -110,7 +100,6 @@ export default function TwoPMCheckScreen({ navigation }) {
           reporterEmail: user.email ?? "",
           localDate,
         }).then((notifId) => {
-          // Navigate to CreateIssue with the notification id so it can link the issue back
           navigation.navigate("CreateIssue", {
             siteId,
             siteName: site.name ?? siteName ?? "",
@@ -118,7 +107,6 @@ export default function TwoPMCheckScreen({ navigation }) {
           });
         }).catch((e) => {
           console.warn("Failed to create check-in alert:", e?.message);
-          // Still navigate even if notification write failed
           navigation.navigate("CreateIssue", {
             siteId,
             siteName: site.name ?? siteName ?? "",
@@ -139,10 +127,13 @@ export default function TwoPMCheckScreen({ navigation }) {
   if (!siteId) {
     return (
       <Screen padding={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backHit}>
-          <AppText variant="body" bold>
-            ← Back
-          </AppText>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
+        >
+          <AppText variant="body" bold>← Back</AppText>
         </Pressable>
         <Card accent>
           <AppText variant="body">
@@ -159,6 +150,7 @@ export default function TwoPMCheckScreen({ navigation }) {
         contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
           <Pressable
             onPress={() => navigation.goBack()}
@@ -167,22 +159,16 @@ export default function TwoPMCheckScreen({ navigation }) {
             accessibilityLabel="Go back"
             style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
           >
-            <AppText variant="body" bold>
-              ←
-            </AppText>
+            <AppText variant="body" bold>← Back</AppText>
           </Pressable>
-          <View style={styles.headerMain}>
-            <AppText variant="title" bold>
-              Bob
-            </AppText>
-            <AppText variant="caption" bold style={styles.timeLabel}>
-              {displayTime}
-            </AppText>
-          </View>
         </View>
 
-        <AppText variant="caption" style={styles.siteHint} numberOfLines={2}>
-          Site: {displaySiteName}
+        {/* Site name + check-in time */}
+        <AppText variant="title" bold style={styles.siteName} numberOfLines={2}>
+          {displaySiteName}
+        </AppText>
+        <AppText variant="caption" style={styles.timeCaption}>
+          Check-in due at {displayTime}
         </AppText>
 
         {siteError ? (
@@ -198,24 +184,11 @@ export default function TwoPMCheckScreen({ navigation }) {
         ) : !canCheckIn ? (
           <Card accent>
             <AppText variant="body">
-              You don&apos;t have access to check in for this site. Ask your project manager to invite
-              you.
+              You don&apos;t have access to check in for this site. Ask your project manager to invite you.
             </AppText>
           </Card>
         ) : (
           <>
-            <View style={styles.hero}>
-              <AppText variant="body" style={styles.heroEmoji}>
-                🏗️
-              </AppText>
-              <AppText variant="caption" style={styles.dateLine}>
-                {todayLabel}
-              </AppText>
-              <AppText variant="title" bold style={styles.screenTitle}>
-                Daily check-in
-              </AppText>
-            </View>
-
             {hasAnsweredToday ? (
               <Card accent>
                 <AppText variant="body" bold style={styles.cardTitle}>
@@ -267,14 +240,14 @@ export default function TwoPMCheckScreen({ navigation }) {
                   }
                 />
 
-                <Card accent>
+                <NeobrutalInfoCard variant="stacked" style={styles.infoCard}>
                   <AppText variant="caption" bold style={styles.reminderTitle}>
                     Check-in window
                   </AppText>
                   <AppText variant="body">
-                    Daily check-in opens at {displayTime}. Answer honestly so the team can act fast.
+                    Daily check-in is due at {displayTime}
                   </AppText>
-                </Card>
+                </NeobrutalInfoCard>
               </>
             ) : (
               <>
@@ -283,8 +256,7 @@ export default function TwoPMCheckScreen({ navigation }) {
                     Not open yet
                   </AppText>
                   <AppText variant="body" style={styles.cardBody}>
-                    The daily check-in opens at {displayTime}. Come back then to record
-                    READY or NOT READY.
+                    The daily check-in opens at {displayTime}. Come back then to record READY or NOT READY.
                   </AppText>
                 </Card>
                 <AppText variant="caption" style={styles.hint}>
@@ -304,56 +276,36 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 8,
   },
   backHit: {
     paddingVertical: 4,
     paddingRight: 4,
+    alignSelf: "flex-start",
   },
   backPressed: {
     opacity: 0.7,
   },
-  headerMain: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  timeLabel: {
-    color: colors.text,
-    letterSpacing: 0.5,
-  },
-  siteHint: {
-    marginBottom: 16,
-    color: colors.textSecondary,
-  },
-  hero: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  heroEmoji: {
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  dateLine: {
-    textAlign: "center",
+  siteName: {
     marginBottom: 4,
   },
-  screenTitle: {
-    textAlign: "center",
+  timeCaption: {
+    color: colors.textSecondary,
+    marginBottom: 24,
   },
   question: {
     textAlign: "center",
     marginBottom: 20,
+    marginTop: 8,
   },
   cardTitle: {
     marginBottom: 8,
   },
   cardBody: {
     color: colors.textSecondary,
+  },
+  infoCard: {
+    marginTop: 8,
   },
   reminderTitle: {
     marginBottom: 6,

@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from "react";
 import { View, Pressable, StyleSheet, Platform, Animated } from "react-native";
 import { colors } from "../constants/theme";
 
-const TAB_WIDTH = 56;
-const GAP = 12;
+const TAB_WIDTH = 48;
+const GAP = 8;
 
 export default function FloatingTabBar({ state, descriptors, navigation }) {
 

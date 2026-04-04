@@ -1,22 +1,80 @@
-import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useFirestoreIssues } from "../hooks/useFirestoreIssues";
+import React, { useMemo, useState } from "react";
+import {
+  View,
+  StyleSheet,
+  SectionList,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { useAuth } from "../context/AuthContext";
+import { useSites } from "../hooks/useSites";
+import { useFirestoreIssuesBySites } from "../hooks/useFirestoreIssues";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
-import Button from "../components/Button";
 import Card from "../components/Card";
 import { colors } from "../constants/theme";
 
-export default function IssuesScreen({ navigation, route }) {
-  const siteId = route?.params?.siteId || null;
-  const siteName = route?.params?.siteName || "Site";
+function issueCreatedTime(issue) {
+  const c = issue.createdAt;
+  if (c?.toDate) return c.toDate().getTime();
+  if (c?.seconds != null) return c.seconds * 1000;
+  return 0;
+}
+
+function isClosedStatus(status) {
+  const s = status?.toLowerCase();
+  return s === "resolved" || s === "closed";
+}
+
+export default function AllIssuesScreen({ navigation }) {
+  const { user } = useAuth();
+  const { sites, loading: sitesLoading } = useSites(user?.uid);
+  const siteIds = useMemo(() => sites.map((s) => s.id), [sites]);
+  const siteNameById = useMemo(() => {
+    const m = new Map();
+    sites.forEach((s) => m.set(s.id, s.name || s.id));
+    return m;
+  }, [sites]);
+
+  const { issues, loading: issuesLoading } = useFirestoreIssuesBySites(siteIds);
   const [tab, setTab] = useState("current");
+  const tabBarPadding = useTabBarPadding();
 
-  const { issues, loading } = useFirestoreIssues(siteId);
+  const loading = sitesLoading || issuesLoading;
 
-  const currentIssues = issues.filter((issue) => issue.status?.toLowerCase() !== "resolved" && issue.status?.toLowerCase() !== "closed");
-  const closedIssues = issues.filter((issue) => issue.status?.toLowerCase() === "resolved" || issue.status?.toLowerCase() === "closed");
-  const data = tab === "current" ? currentIssues : closedIssues;
+  const currentIssues = useMemo(
+    () => issues.filter((issue) => !isClosedStatus(issue.status)),
+    [issues]
+  );
+  const closedIssues = useMemo(
+    () => issues.filter((issue) => isClosedStatus(issue.status)),
+    [issues]
+  );
+
+  const filtered = tab === "current" ? currentIssues : closedIssues;
+
+  const sections = useMemo(() => {
+    const bySite = new Map();
+    for (const issue of filtered) {
+      const sid = issue.siteId || "__unknown";
+      if (!bySite.has(sid)) bySite.set(sid, []);
+      bySite.get(sid).push(issue);
+    }
+
+    return Array.from(bySite.entries())
+      .map(([siteId, data]) => {
+        const sorted = [...data].sort(
+          (a, b) => issueCreatedTime(b) - issueCreatedTime(a)
+        );
+        const title =
+          siteId === "__unknown"
+            ? "Unknown site"
+            : siteNameById.get(siteId) ?? siteId;
+        return { siteId, title, data: sorted };
+      })
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [filtered, siteNameById]);
 
   function getPriorityColor(priority) {
     const p = priority?.toLowerCase();
@@ -39,7 +97,9 @@ export default function IssuesScreen({ navigation, route }) {
 
     return (
       <TouchableOpacity
-        onPress={() => navigation.navigate("IssueDetail", { issue: item })}
+        onPress={() =>
+          navigation.getParent()?.navigate("IssueDetail", { issue: item })
+        }
         activeOpacity={0.7}
       >
         <Card style={styles.issueCard}>
@@ -63,8 +123,10 @@ export default function IssuesScreen({ navigation, route }) {
             </View>
             <AppText variant="caption">•</AppText>
             <AppText variant="caption">
-          {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : item.createdAt}
-        </AppText>
+              {item.createdAt?.toDate
+                ? item.createdAt.toDate().toLocaleDateString()
+                : item.createdAt}
+            </AppText>
           </View>
 
           {item.createdBy && (
@@ -77,40 +139,20 @@ export default function IssuesScreen({ navigation, route }) {
     );
   }
 
-  if (!siteId) {
-    return (
-      <Screen edges={[]}>
-        <Card style={styles.emptyCard}>
-          <AppText variant="body" style={styles.emptyText}>
-            No site selected. Open issues from a site on the dashboard, or use the Issues tab to see all issues.
-          </AppText>
-        </Card>
-      </Screen>
-    );
-  }
-
   if (loading) {
     return (
-      <Screen edges={[]}><ActivityIndicator style={{ marginTop: 40 }} /></Screen>
+      <Screen edges={[]}>
+        <ActivityIndicator style={{ marginTop: 40 }} />
+      </Screen>
     );
   }
 
   return (
     <Screen edges={[]}>
       <View style={styles.header}>
-        <AppText variant="title" bold>{siteName}</AppText>
-        <Button
-          variant="primary"
-          tone="positive"
-          title="+ Add"
-          onPress={() =>
-            navigation.navigate("CreateIssue", {
-              siteId,
-              siteName,
-            })
-          }
-          size="sm"
-        />
+        <AppText variant="title" bold>
+          Issues
+        </AppText>
       </View>
 
       <View style={styles.tabs}>
@@ -143,17 +185,25 @@ export default function IssuesScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={data}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderIssueCard}
-        contentContainerStyle={styles.listContent}
+        renderSectionHeader={({ section: { title } }) => (
+          <View style={styles.sectionHeader}>
+            <AppText variant="body" bold style={styles.sectionTitle}>
+              {title}
+            </AppText>
+          </View>
+        )}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarPadding }]}
+        stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <Card style={styles.emptyCard}>
             <AppText variant="body" style={styles.emptyText}>
               {tab === "current"
-                ? "No open issues. Tap + Add to create one."
+                ? "No open issues across your sites."
                 : "No closed issues yet."}
             </AppText>
           </Card>
@@ -195,6 +245,14 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: colors.textOnPrimary,
+  },
+
+  sectionHeader: {
+    paddingBottom: 8,
+    paddingTop: 4,
+  },
+  sectionTitle: {
+    color: colors.textSecondary,
   },
 
   listContent: {

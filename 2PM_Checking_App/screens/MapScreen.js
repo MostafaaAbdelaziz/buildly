@@ -94,6 +94,9 @@ export default function MapScreen({ route, navigation }) {
       navigation.getParent()?.navigate("CreateIssue", {
         pickedLocation: picked,
         _ts: Date.now(),
+        siteId: route?.params?.siteId,
+        siteName: route?.params?.siteName,
+        linkedNotificationId: route?.params?.linkedNotificationId,
       });
     }
 

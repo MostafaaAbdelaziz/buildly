@@ -1,16 +1,20 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useRoute } from "@react-navigation/native";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Card from "../components/Card";
+import Button from "../components/Button";
+import NeobrutalInfoCard from "../components/NeobrutalInfoCard";
 import { colors } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
 import { useSiteDetail } from "../hooks/useSiteDetail";
 import { useActiveSiteMembers } from "../hooks/useActiveSiteMembers";
 import { useDailyCheckInsForSite } from "../hooks/useDailyCheckInsForSite";
 import { useUserEmail } from "../hooks/useUserEmail";
+import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 import {
   buildExpectedCheckInUserIds,
   getLocalDateString,
@@ -31,6 +35,38 @@ const STATUS_LABEL = {
   not_on_track: "Not ready",
 };
 
+/** Fetch CHECK_IN_ALERT notifications for this site+date and build a uid→issueId map. */
+function useCheckInIssueMap(siteId, localDate, pmUserId, enabled) {
+  const [issueMap, setIssueMap] = useState({});
+
+  useEffect(() => {
+    if (!enabled || !siteId || !localDate || !pmUserId) {
+      setIssueMap({});
+      return;
+    }
+    const q = query(
+      collection(firebase_fs, "notifications"),
+      where("userId", "==", pmUserId),
+      where("type", "==", "CHECK_IN_ALERT"),
+      where("siteId", "==", siteId),
+      where("localDate", "==", localDate)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const map = {};
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        if (data.reporterUserId && data.issueId) {
+          map[data.reporterUserId] = data.issueId;
+        }
+      });
+      setIssueMap(map);
+    });
+    return unsub;
+  }, [siteId, localDate, pmUserId, enabled]);
+
+  return issueMap;
+}
+
 export default function SiteDailyCheckInScreen({ navigation }) {
   const route = useRoute();
   const { siteId, siteName } = route.params || {};
@@ -50,14 +86,7 @@ export default function SiteDailyCheckInScreen({ navigation }) {
     isPm ? site?.projectManagerId : undefined
   );
 
-  const todayLabel = useMemo(() => {
-    return new Date().toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-  }, []);
+  const issueMap = useCheckInIssueMap(siteId, localDate, user?.uid, !!isPm);
 
   const expectedIds = useMemo(() => buildExpectedCheckInUserIds(site, members), [site, members]);
 
@@ -98,6 +127,7 @@ export default function SiteDailyCheckInScreen({ navigation }) {
         contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
           <Pressable
             onPress={() => navigation.goBack()}
@@ -106,19 +136,14 @@ export default function SiteDailyCheckInScreen({ navigation }) {
             accessibilityLabel="Go back"
             style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
           >
-            <AppText variant="body" bold>
-              ← Back
-            </AppText>
+            <AppText variant="body" bold>← Back</AppText>
           </Pressable>
-          <AppText variant="title" bold numberOfLines={1} style={styles.headerTitle}>
-            Check-in status
-          </AppText>
         </View>
 
-        <AppText variant="caption" style={styles.dateLine}>
-          {todayLabel}
+        <AppText variant="title" bold style={styles.screenTitle}>
+          Check-in status
         </AppText>
-        <AppText variant="body" bold style={styles.siteLine}>
+        <AppText variant="title" bold style={styles.siteName} numberOfLines={2}>
           {siteName || site?.name || "Site"}
         </AppText>
 
@@ -136,11 +161,7 @@ export default function SiteDailyCheckInScreen({ navigation }) {
           <ActivityIndicator style={styles.loader} />
         ) : (
           <>
-            <AppText variant="caption" style={styles.hint}>
-              Local date {localDate}. Roster includes the PM and all active site members.
-            </AppText>
-
-            <AppText variant="title" bold style={styles.sectionTitle}>
+            <AppText variant="body" bold style={styles.sectionTitle}>
               Checked in ({checkedIn.length})
             </AppText>
             {checkedIn.length === 0 ? (
@@ -148,17 +169,39 @@ export default function SiteDailyCheckInScreen({ navigation }) {
                 No one yet.
               </AppText>
             ) : (
-              checkedIn.map((uid) => (
-                <Card key={uid} style={[styles.personCard, styles.cardGreen]}>
-                  <EmailLabel uid={uid} />
-                  <AppText variant="caption" style={styles.statusTag}>
-                    {STATUS_LABEL[statusByUserId[uid]] ?? statusByUserId[uid]}
-                  </AppText>
-                </Card>
-              ))
+              checkedIn.map((uid) => {
+                const issueId = issueMap[uid];
+                return (
+                  <NeobrutalInfoCard
+                    key={uid}
+                    variant="split"
+                    accentColor="#16a34a"
+                    style={styles.personCard}
+                  >
+                    <View style={styles.personCardInner}>
+                      <View style={styles.personCardText}>
+                        <EmailLabel uid={uid} />
+                        <AppText variant="caption" style={styles.statusTag}>
+                          {STATUS_LABEL[statusByUserId[uid]] ?? statusByUserId[uid]}
+                        </AppText>
+                      </View>
+                      {issueId ? (
+                        <Button
+                          variant="secondary"
+                          title="Issue →"
+                          size="sm"
+                          onPress={() =>
+                            navigation.navigate("IssueDetail", { issueId })
+                          }
+                        />
+                      ) : null}
+                    </View>
+                  </NeobrutalInfoCard>
+                );
+              })
             )}
 
-            <AppText variant="title" bold style={[styles.sectionTitle, styles.sectionSpaced]}>
+            <AppText variant="body" bold style={[styles.sectionTitle, styles.sectionSpaced]}>
               Not checked in ({notCheckedIn.length})
             </AppText>
             {notCheckedIn.length === 0 ? (
@@ -167,9 +210,14 @@ export default function SiteDailyCheckInScreen({ navigation }) {
               </AppText>
             ) : (
               notCheckedIn.map((uid) => (
-                <Card key={uid} style={[styles.personCard, styles.cardRed]}>
+                <NeobrutalInfoCard
+                  key={uid}
+                  variant="split"
+                  accentColor="#dc2626"
+                  style={styles.personCard}
+                >
                   <EmailLabel uid={uid} />
-                </Card>
+                </NeobrutalInfoCard>
               ))
             )}
           </>
@@ -184,26 +232,21 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 12,
+    marginBottom: 8,
   },
   backHit: {
     paddingVertical: 4,
     paddingRight: 4,
+    alignSelf: "flex-start",
   },
   backPressed: {
     opacity: 0.7,
   },
-  headerTitle: {
-    flex: 1,
+  screenTitle: {
+    marginBottom: 2,
   },
-  dateLine: {
-    marginBottom: 4,
-  },
-  siteLine: {
-    marginBottom: 16,
+  siteName: {
+    marginBottom: 20,
   },
   sectionTitle: {
     marginBottom: 8,
@@ -214,15 +257,14 @@ const styles = StyleSheet.create({
   personCard: {
     marginBottom: 8,
   },
-  cardGreen: {
-    backgroundColor: "#f0fdf4",
-    borderLeftWidth: 4,
-    borderLeftColor: "#16a34a",
+  personCardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  cardRed: {
-    backgroundColor: "#fff1f2",
-    borderLeftWidth: 4,
-    borderLeftColor: "#dc2626",
+  personCardText: {
+    flex: 1,
+    marginRight: 8,
   },
   statusTag: {
     marginTop: 4,
@@ -231,10 +273,6 @@ const styles = StyleSheet.create({
   empty: {
     color: colors.textSecondary,
     marginBottom: 8,
-  },
-  hint: {
-    marginBottom: 16,
-    color: colors.textSecondary,
   },
   loader: {
     marginTop: 24,

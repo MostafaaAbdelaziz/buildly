@@ -5,9 +5,11 @@ import DashboardStack from "./DashboardStack";
 import MapScreen from "../screens/MapScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import GanttChartScreen from "../screens/GanttChartScreen";
+import AllIssuesScreen from "../screens/AllIssuesScreen";
 import FloatingTabBar from "../components/FloatingTabBar";
 import {
   DashboardIcon,
+  IssuesIcon,
   ScheduleIcon,
   MapIcon,
   ProfileIcon,
@@ -26,6 +28,13 @@ export default function TabsNavigator() {
         component={DashboardStack}
         options={{
           tabBarIcon: ({ color }) => <DashboardIcon color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Issues"
+        component={AllIssuesScreen}
+        options={{
+          tabBarIcon: ({ color }) => <IssuesIcon color={color} />,
         }}
       />
       <Tab.Screen

@@ -105,7 +105,7 @@ export default function SiteCheckInSettingsScreen({ navigation }) {
         contentContainerStyle={{ paddingBottom: tabBarPadding + 16 }}
         showsVerticalScrollIndicator={false}
       >
-        <AppText variant="title" bold style={styles.title}>
+        <AppText variant="title" bold style={[styles.title, styles.topTitle]}>
           Check-in Settings
         </AppText>
         <AppText variant="caption" style={styles.subtitle}>
@@ -205,24 +205,6 @@ export default function SiteCheckInSettingsScreen({ navigation }) {
               </View>
             </Card>
 
-            <Card accent style={styles.section}>
-              <AppText variant="caption" bold style={styles.previewLabel}>
-                Preview
-              </AppText>
-              <AppText variant="body">
-                {"Reminders sent at "}
-                <AppText variant="body" bold>
-                  {formatDisplayTime(formatTime(selectedTime))}
-                </AppText>
-                {" on "}
-                <AppText variant="body" bold>
-                  {selectedDays.length === 0
-                    ? "no days (disabled)"
-                    : selectedDays.map((d) => DAY_LABELS[d]).join(", ")}
-                </AppText>
-              </AppText>
-            </Card>
-
             <Button
               testID="checkin-settings-save"
               title="Save settings"
@@ -245,6 +227,9 @@ export default function SiteCheckInSettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   title: {
     marginBottom: 4,
+  },
+  topTitle: {
+    marginTop: 8,
   },
   subtitle: {
     color: colors.textSecondary,
@@ -313,12 +298,6 @@ const styles = StyleSheet.create({
   },
   dayChipTextSelected: {
     color: "#fff",
-  },
-  previewLabel: {
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: colors.textSecondary,
-    marginBottom: 6,
   },
   saveBtn: {
     marginTop: 8,

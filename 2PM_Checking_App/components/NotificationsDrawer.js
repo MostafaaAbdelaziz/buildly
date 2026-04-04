@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AppText from "./AppText";
 import InviteNotificationCard from "./InviteNotificationCard";
 import CheckInAlertCard from "./CheckInAlertCard";
+import IssueCreatedCard from "./IssueCreatedCard";
 import { colors } from "../constants/theme";
 
 /**
@@ -39,6 +40,7 @@ export default function NotificationsDrawer({
 }) {
   const inviteNotifs = notifications.filter((n) => n.type === "SITE_INVITE");
   const alertNotifs = notifications.filter((n) => n.type === "CHECK_IN_ALERT");
+  const issueCreatedNotifs = notifications.filter((n) => n.type === "ISSUE_CREATED");
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -76,7 +78,7 @@ export default function NotificationsDrawer({
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {inviteNotifs.length === 0 && alertNotifs.length === 0 ? (
+          {inviteNotifs.length === 0 && alertNotifs.length === 0 && issueCreatedNotifs.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="notifications-outline" size={40} color={colors.textSecondary} />
               <AppText variant="body" style={styles.emptyText}>
@@ -88,6 +90,17 @@ export default function NotificationsDrawer({
             </View>
           ) : (
             <>
+              {issueCreatedNotifs.map((notif) => (
+                <IssueCreatedCard
+                  key={notif.id}
+                  notification={notif}
+                  onViewIssue={(issueId) => {
+                    onClose();
+                    onViewIssue?.(issueId);
+                  }}
+                  onDismiss={() => onDismiss?.(notif)}
+                />
+              ))}
               {alertNotifs.map((notif) => (
                 <CheckInAlertCard
                   key={notif.id}

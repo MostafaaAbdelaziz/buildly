@@ -1,21 +1,55 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  TouchableOpacity,
   Alert,
   Image,
-  ActivityIndicator,
+  Pressable,
+  ScrollView,
 } from "react-native";
+import { doc, onSnapshot } from "firebase/firestore";
+import { firebase_fs } from "../firebaseConfig/firebaseConfig";
 import { updateIssueStatus } from "../services/siteRepository";
-import { useFirestoreIssueById } from "../hooks/useFirestoreIssues";
+import Screen from "../components/Screen";
+import AppText from "../components/AppText";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import { colors } from "../constants/theme";
 
 const STATUSES = ["Open", "In Progress", "Resolved"];
 
+function useFirestoreIssueRealtime(issueId) {
+  const [issue, setIssue] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!issueId) {
+      setIssue(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const ref = doc(firebase_fs, "issues", issueId);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        setIssue(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        setLoading(false);
+      },
+      (e) => {
+        console.warn("IssueDetailScreen listener:", e?.message);
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, [issueId]);
+
+  return { issue, loading };
+}
+
 export default function IssueDetailScreen({ route, navigation }) {
   const issueId = route.params?.issueId ?? route.params?.issue?.id;
-  const { issue, loading } = useFirestoreIssueById(issueId);
+  const { issue, loading } = useFirestoreIssueRealtime(issueId);
 
   async function updateStatus(newStatus) {
     try {
@@ -27,20 +61,31 @@ export default function IssueDetailScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" />
-      </View>
+      <Screen padding={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
+        >
+          <AppText variant="body" bold>← Back</AppText>
+        </Pressable>
+        <Button variant="secondary" title="Loading…" disabled />
+      </Screen>
     );
   }
 
   if (!issue) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Issue not found</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>Go back</Text>
-        </TouchableOpacity>
-      </View>
+      <Screen padding={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
+        >
+          <AppText variant="body" bold>← Back</AppText>
+        </Pressable>
+        <AppText variant="body">Issue not found.</AppText>
+      </Screen>
     );
   }
 
@@ -50,95 +95,129 @@ export default function IssueDetailScreen({ route, navigation }) {
     : issue.createdAt ?? "";
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{issue.title}</Text>
+    <Screen padding={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Back button */}
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={({ pressed }) => [styles.backHit, pressed && styles.backPressed]}
+        >
+          <AppText variant="body" bold>← Back</AppText>
+        </Pressable>
 
-      <View style={styles.infoBlock}>
-        <Text style={styles.line}>Priority: {issue.priority}</Text>
-        <Text style={styles.line}>Status: {issue.status}</Text>
-        <Text style={styles.line}>Created: {createdAtLabel}</Text>
+        {/* Title */}
+        <AppText variant="title" bold style={styles.title}>
+          {issue.title}
+        </AppText>
 
-        <Text style={[styles.line, { marginTop: 10, fontWeight: "800" }]}>Description</Text>
-        <Text style={{ marginBottom: 8 }}>
-          {issue.description || "No description provided."}
-        </Text>
+        {/* Info block */}
+        <Card style={styles.infoCard}>
+          <AppText variant="caption" style={styles.fieldLabel}>Priority</AppText>
+          <AppText variant="body" bold style={styles.fieldValue}>{issue.priority}</AppText>
 
-        {issue.location?.latitude != null && issue.location?.longitude != null ? (
-          <Text style={[styles.line, { marginTop: 10 }]}>
-            📍 {Number(issue.location.latitude).toFixed(5)}, {Number(issue.location.longitude).toFixed(5)}
-          </Text>
-        ) : null}
+          <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Status</AppText>
+          <AppText variant="body" bold style={styles.fieldValue}>{issue.status}</AppText>
 
-        {issue.image ? (
-          <Image source={{ uri: issue.image }} style={styles.photo} />
-        ) : null}
-      </View>
+          <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Created</AppText>
+          <AppText variant="body" style={styles.fieldValue}>{createdAtLabel}</AppText>
 
-      {!isTrashed && (
-        <>
-          <Text style={styles.sectionTitle}>Update status</Text>
-          <View style={styles.row}>
-            {STATUSES.map((status) => {
-              const active = issue.status === status;
-              return (
-                <TouchableOpacity
-                  key={status}
-                  style={[styles.btn, active && styles.btnActive]}
-                  onPress={() => updateStatus(status)}
-                >
-                  <Text style={[styles.btnText, active && styles.btnTextActive]}>
-                    {status}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </>
-      )}
+          <AppText variant="body" bold style={[styles.fieldLabel, styles.fieldSpaced]}>Description</AppText>
+          <AppText variant="body" style={styles.fieldValue}>
+            {issue.description || "No description provided."}
+          </AppText>
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>Back</Text>
-      </TouchableOpacity>
-    </View>
+          {issue.location?.latitude != null && issue.location?.longitude != null ? (
+            <>
+              <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Location</AppText>
+              <AppText variant="body" style={styles.fieldValue}>
+                {Number(issue.location.latitude).toFixed(5)}, {Number(issue.location.longitude).toFixed(5)}
+              </AppText>
+            </>
+          ) : null}
+
+          {issue.image ? (
+            <Image source={{ uri: issue.image }} style={styles.photo} />
+          ) : null}
+        </Card>
+
+        {/* Status update */}
+        {!isTrashed && (
+          <>
+            <AppText variant="body" bold style={styles.sectionTitle}>
+              Update status
+            </AppText>
+            <View style={styles.statusRow}>
+              {STATUSES.map((status) => {
+                const active = issue.status === status;
+                return (
+                  <View key={status} style={styles.statusBtn}>
+                    <Button
+                      title={status}
+                      variant={active ? "primary" : "secondary"}
+                      tone={status === "Open" ? "negative" : "positive"}
+                      size="sm"
+                      fullWidth
+                      onPress={() => updateStatus(status)}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 24, fontWeight: "800", marginBottom: 12 },
-
-  infoBlock: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: "white",
+  backHit: {
+    paddingVertical: 4,
+    paddingRight: 4,
+    alignSelf: "flex-start",
+    marginBottom: 12,
   },
-  line: { marginBottom: 6 },
-
-  photo: { width: "100%", height: 220, borderRadius: 12, marginTop: 10 },
-
-  sectionTitle: { marginTop: 18, fontWeight: "800" },
-
-  row: { flexDirection: "row", gap: 10, marginTop: 10 },
-  btn: {
+  backPressed: {
+    opacity: 0.7,
+  },
+  title: {
+    marginBottom: 16,
+  },
+  infoCard: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    opacity: 0.7,
+    marginBottom: 2,
+  },
+  fieldValue: {
+    marginBottom: 4,
+  },
+  fieldSpaced: {
+    marginTop: 10,
+  },
+  photo: {
+    width: "100%",
+    height: 220,
+    borderRadius: 4,
+    marginTop: 12,
+  },
+  sectionTitle: {
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  statusRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  statusBtn: {
     flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    backgroundColor: "white",
   },
-  btnActive: { backgroundColor: "black", borderColor: "black" },
-  btnText: { fontWeight: "700" },
-  btnTextActive: { color: "white" },
-
-  backBtn: {
-    marginTop: 18,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "#333",
-  },
-  backText: { color: "white", fontWeight: "700", textAlign: "center" },
 });

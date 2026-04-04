@@ -79,6 +79,26 @@ export async function linkIssueToCheckInAlert(notificationId, issueId) {
 }
 
 /**
+ * Creates an ISSUE_CREATED notification for the site's project manager.
+ * Called when any user (foreman, sub) creates a new issue.
+ */
+export async function createIssueCreatedNotification(pmUserId, payload) {
+  const notifRef = doc(collection(firebase_fs, "notifications"));
+  await setDoc(notifRef, {
+    userId: pmUserId,
+    type: "ISSUE_CREATED",
+    siteId: payload.siteId,
+    siteName: payload.siteName,
+    issueId: payload.issueId,
+    issueTitle: payload.issueTitle,
+    reporterEmail: payload.reporterEmail ?? "",
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+  return notifRef.id;
+}
+
+/**
  * Fan-out: creates notifications for multiple users in one batch.
  * Originally a no-op stub — now fully implemented.
  *

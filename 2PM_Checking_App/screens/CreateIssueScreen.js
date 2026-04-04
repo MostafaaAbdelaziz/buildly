@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   Platform,
   ActionSheetIOS,
   Alert,
+  TouchableOpacity,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -19,15 +20,38 @@ import Card from "../components/Card";
 import { colors } from "../constants/theme";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import { createIssueForSite } from "../services/siteRepository";
-import { linkIssueToCheckInAlert } from "../services/notificationRepository";
+import { linkIssueToCheckInAlert, createIssueCreatedNotification } from "../services/notificationRepository";
+import { useSiteDetail } from "../hooks/useSiteDetail";
+import { useSites } from "../hooks/useSites";
 import { uploadIssueImage } from "../services/storageProvider";
 
 export default function CreateIssueScreen({ navigation, route }) {
   const { user } = useAuth();
   const tabBarPadding = useTabBarPadding();
-  const siteId = route?.params?.siteId || null;
-  const siteName = route?.params?.siteName || "Site";
+  const siteIdFromRoute = route?.params?.siteId || null;
+  const siteNameFromRoute = route?.params?.siteName || "";
   const linkedNotificationId = route?.params?.linkedNotificationId || null;
+  const [selectedSiteId, setSelectedSiteId] = useState(null);
+  const { sites, loading: sitesLoading } = useSites(user?.uid);
+
+  const effectiveSiteId = siteIdFromRoute || selectedSiteId;
+  const { site } = useSiteDetail(effectiveSiteId);
+
+  const effectiveSiteName = useMemo(() => {
+    if (siteIdFromRoute) {
+      return siteNameFromRoute || site?.name || "Site";
+    }
+    if (selectedSiteId) {
+      return sites.find((s) => s.id === selectedSiteId)?.name || site?.name || "Site";
+    }
+    return site?.name || "";
+  }, [siteIdFromRoute, siteNameFromRoute, selectedSiteId, sites, site?.name]);
+
+  useEffect(() => {
+    if (siteIdFromRoute) {
+      setSelectedSiteId(null);
+    }
+  }, [siteIdFromRoute]);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [description, setDescription] = useState("");
@@ -119,8 +143,8 @@ export default function CreateIssueScreen({ navigation, route }) {
         mode: "pick",
         initialLocation: location,
         returnTo: "CreateIssue",
-        siteId,
-        siteName,
+        siteId: effectiveSiteId,
+        siteName: effectiveSiteName,
       },
     });
   }
@@ -140,9 +164,8 @@ export default function CreateIssueScreen({ navigation, route }) {
   }
 
   async function handleSave() {
-
-    if (!siteId) {
-      Alert.alert("Missing site", "This issue is not linked to a site.");
+    if (!effectiveSiteId) {
+      Alert.alert("Site required", "Please select a site for this issue.");
       return;
     }
     if (!title.trim()) {
@@ -158,7 +181,7 @@ export default function CreateIssueScreen({ navigation, route }) {
       }
 
       const ref = await createIssueForSite({
-        siteId,
+        siteId: effectiveSiteId,
         title: title.trim(),
         priority: priority.trim(),
         description: description.trim(),
@@ -173,7 +196,21 @@ export default function CreateIssueScreen({ navigation, route }) {
           console.warn("Failed to link issue to check-in alert:", e?.message)
         );
       }
-    
+
+      // Notify PM when issue is created by someone other than the PM
+      const pmId = site?.projectManagerId;
+      if (pmId && pmId !== user?.uid) {
+        createIssueCreatedNotification(pmId, {
+          siteId: effectiveSiteId,
+          siteName: effectiveSiteName,
+          issueId: ref.id,
+          issueTitle: title.trim(),
+          reporterEmail: user?.email ?? "",
+        }).catch((e) =>
+          console.warn("Failed to send issue-created notification:", e?.message)
+        );
+      }
+
       navigation.goBack();
 
     } catch (e) {
@@ -188,6 +225,56 @@ export default function CreateIssueScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
       >
         <AppText variant="title" bold>Create Issue</AppText>
+
+        {siteIdFromRoute ? (
+          <View style={styles.section}>
+            <AppText variant="body" bold style={styles.sectionLabel}>
+              Site
+            </AppText>
+            <Card style={styles.siteFixedCard}>
+              <AppText variant="body" bold>
+                {siteNameFromRoute || site?.name || "Site"}
+              </AppText>
+            </Card>
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <AppText variant="body" bold style={styles.sectionLabel}>
+              Site <AppText style={{ color: colors.accent }}>*</AppText>
+            </AppText>
+            {sitesLoading ? (
+              <AppText variant="caption" style={{ color: colors.textSecondary }}>
+                Loading sites…
+              </AppText>
+            ) : sites.length === 0 ? (
+              <AppText variant="body" style={{ color: colors.textSecondary }}>
+                You have no sites yet. Create or join a site first.
+              </AppText>
+            ) : (
+              sites.map((s) => {
+                const selected = selectedSiteId === s.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    activeOpacity={0.75}
+                    onPress={() => setSelectedSiteId(s.id)}
+                  >
+                    <Card
+                      style={[
+                        styles.siteOption,
+                        selected && styles.siteOptionSelected,
+                      ]}
+                    >
+                      <AppText variant="body" bold={selected}>
+                        {s.name}
+                      </AppText>
+                    </Card>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        )}
 
         <View style={styles.section}>
           <AppText variant="body" bold style={styles.sectionLabel}>Location <AppText variant="caption" style={{ color: colors.textSecondary }}>(optional)</AppText></AppText>
@@ -320,6 +407,18 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     marginBottom: 10,
+  },
+  siteFixedCard: {
+    paddingVertical: 12,
+  },
+  siteOption: {
+    marginBottom: 10,
+    paddingVertical: 4,
+  },
+  siteOptionSelected: {
+    borderColor: colors.shadow || "#111",
+    borderWidth: 2.5,
+    backgroundColor: colors.neutral,
   },
 
   input: {
