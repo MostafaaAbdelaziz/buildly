@@ -3,6 +3,7 @@ import {
   listenDrawingsInFolder,
   uploadDrawing as repoUploadDrawing,
   replaceDrawing as repoReplaceDrawing,
+  renameDrawing as repoRenameDrawing,
 } from "../services/drawingRepository";
 
 export function useDrawings(siteId, folder) {
@@ -43,12 +44,18 @@ export function useDrawings(siteId, folder) {
     return repoReplaceDrawing(siteId, drawing, localUri, metadata);
   }
 
+  async function renameDrawing(drawing, newName) {
+    return repoRenameDrawing(siteId, drawing, newName);
+  }
+
+
   return {
     drawings,
     loading,
     error,
     uploadDrawing,
     replaceDrawing,
+    renameDrawing,
   };
 }
 

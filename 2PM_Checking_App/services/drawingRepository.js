@@ -165,3 +165,11 @@ export async function replaceDrawing(siteId, drawing, localUri, metadata = {}) {
   });
 }
 
+export async function renameDrawing(siteId, drawing, newName) {
+  const drawingRef = doc(siteDrawingsCol(siteId), drawing.id);
+  await updateDoc(drawingRef, {
+    title: newName,
+    updatedAt: serverTimestamp(),
+  });
+}
+

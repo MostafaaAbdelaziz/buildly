@@ -2,6 +2,24 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Image, Platform, StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
+
+export async function pickFromLibrary() {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    alert("Photo library permission is required to pick an image.");
+    return null;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    quality: 0.8,
+  });
+  if (!result.canceled) {
+    return result.assets?.[0]?.uri || null;
+  }
+}
+
 export default function IssueImagePicker({ value, onChange }) {
   const [error, setError] = useState("");
 
@@ -26,20 +44,15 @@ export default function IssueImagePicker({ value, onChange }) {
     return true;
   }
 
-  async function pickFromLibrary() {
-    setError("");
-    const ok = await requestMediaPermission();
-    if (!ok) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const uri = result.assets?.[0]?.uri;
-      onChange?.(uri);
+  async function handlePickFromLibrary() {
+    try{
+      setError("");
+      const uri = await pickFromLibrary();
+      if (uri) {
+        onChange?.(uri);
+      }
+    } catch (err) {
+      setError("An error occurred while picking the image.");
     }
   }
 
@@ -81,7 +94,7 @@ export default function IssueImagePicker({ value, onChange }) {
           <Text style={styles.btnText}>Use Camera</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.btn} onPress={pickFromLibrary}>
+        <TouchableOpacity style={styles.btn} onPress={handlePickFromLibrary}>
           <Text style={styles.btnText}>Pick Image</Text>
         </TouchableOpacity>
 

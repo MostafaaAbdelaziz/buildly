@@ -17,6 +17,9 @@ import { useFolders } from "../hooks/useFolders";
 import { useDrawings } from "../hooks/useDrawings";
 import { useAuth } from "../context/AuthContext";
 import { getRoleConfig } from "../constants/roleConfig";
+import { set } from "firebase/database";
+import { renameDrawing } from "../services/drawingRepository";
+
 
 const GRID_COLUMNS = 3;
 
@@ -47,11 +50,12 @@ export default function DrawingsScreen({ navigation, route }) {
   const { role } = useAuth();
   const roleCfg = getRoleConfig(role);
   const canEdit = roleCfg?.canCreateIssue || roleCfg?.canResolveIssue || roleCfg?.canCreateSchedule;
-  const { folders, loading: foldersLoading, error: foldersError, createFolder } = useFolders(siteId);
+  const { folders, loading: foldersLoading, error: foldersError, createFolder, renameFolder } = useFolders(siteId);
 
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [viewMode, setViewMode] = useState("icons");
   const [pendingImageUri, setPendingImageUri] = useState(null);
+
 
   const currentFolder = useMemo(() => {
     if (!currentFolderId) return null;
@@ -72,7 +76,7 @@ export default function DrawingsScreen({ navigation, route }) {
     }
   }, [folders, currentFolderId]);
 
-  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing } = useDrawings(
+  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing, renameDrawing } = useDrawings(
     siteId,
     currentFolder
   );
@@ -147,6 +151,18 @@ export default function DrawingsScreen({ navigation, route }) {
     setCurrentFolderId(folderId);
   }, []);
 
+  async function renameItem(item, newName) {
+    try {
+      if (item.kind === "folder") {
+        await renameFolder(item, newName);
+      } else{
+        await renameDrawing(item, newName);
+      }
+    } catch (e) {
+      Alert.alert("Error", e?.message || "Failed to rename.");
+    }
+  }
+
   const renderIconItem = useCallback(
     ({ item }) => {
       if (item.kind === "folder") {
@@ -163,6 +179,14 @@ export default function DrawingsScreen({ navigation, route }) {
             <Text style={styles.gridLabel} numberOfLines={2}>
               {item.name}
             </Text>
+
+          {canEdit ? (
+            <TouchableOpacity
+              onPress={() => openItemActions(item)}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+            </TouchableOpacity>
+          ) : null}
           </TouchableOpacity>
         );
       }
@@ -183,6 +207,15 @@ export default function DrawingsScreen({ navigation, route }) {
           <Text style={styles.gridLabel} numberOfLines={2}>
             {item.title || "Drawing"}
           </Text>
+
+          {canEdit ? (
+            <TouchableOpacity
+              onPress={() => openItemActions(item)}
+              hitSlop={10}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+            </TouchableOpacity>
+          ) : null}
         </TouchableOpacity>
       );
     },
@@ -201,6 +234,14 @@ export default function DrawingsScreen({ navigation, route }) {
               </Text>
               <Text style={styles.listSub}>Folder · {formatTs(item.updatedAt)}</Text>
             </View>
+
+            {canEdit ? (
+              <TouchableOpacity
+                onPress={() => openItemActions(item)}
+              >
+                <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            ) : null}
           </TouchableOpacity>
         );
       }
@@ -218,6 +259,14 @@ export default function DrawingsScreen({ navigation, route }) {
               {formatBytes(item.fileSizeBytes)} · v{item.version || 1} · {formatTs(item.updatedAt)}
             </Text>
           </View>
+
+          {canEdit ? (
+            <TouchableOpacity
+              onPress={() => openItemActions(item)}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+            </TouchableOpacity>
+          ) : null}
         </TouchableOpacity>
       );
     },
@@ -226,6 +275,75 @@ export default function DrawingsScreen({ navigation, route }) {
 
   const loading = foldersLoading || (currentFolder && drawingsLoading);
   const listError = foldersError || (currentFolder && drawingsError);
+
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  function openItemActions(item) {
+    setSelectedItem(item);
+
+    const isFolder = item.kind === "folder";
+    const options = isFolder
+      ? ["Open", "Rename", "Delete", "Cancel"]
+      : ["View", "Rename", "Cancel"];
+
+    const cancelButtonIndex = options.length - 1;
+    const destructiveButtonIndex = isFolder ? 2 : -1;
+
+    Alert.alert(
+      item.kind === "folder" ? "Folder actions" : "File actions",
+      item.name || item.title || "Item",
+      options.map((option, index) => ({
+        text: option,
+        style:
+          index === cancelButtonIndex
+            ? "cancel"
+            : index === destructiveButtonIndex
+            ? "destructive"
+            : "default",
+        onPress: () => handleItemAction(item, option.toLowerCase()),
+      }))
+    );
+  }
+
+  function handleItemAction(item, action) {
+
+  if(action === "open") {
+    if (item.kind === "folder") {
+      setCurrentFolderId(item.id);
+    }
+  }
+  if(action === "view") {
+    if (item.kind === "drawing") {
+      navigation.navigate("DrawingDetail", { siteId, drawingId: item.id });
+    }
+  }
+
+  if (action === "rename") {
+    Alert.prompt?.("Rename", "Enter new name", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Save",
+        onPress: async (name) => {
+          if (!name?.trim()) return;
+          await renameItem(item, name.trim());
+        },
+      },
+    ], "plain-text", item.name || item.title || "");
+  }
+
+  if (action === "delete") {
+    Alert.alert("Delete", "This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          await deleteItem(item);
+        },
+      },
+    ]);
+  }
+}
 
   return (
     <Screen edges={[]}>
