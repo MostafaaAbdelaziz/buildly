@@ -12,11 +12,11 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
-import IssueImagePicker from "../components/IssueImagePicker";
+import IssueImagePicker, { pickFromLibrary } from "../components/IssueImagePicker";
 import { useFolders } from "../hooks/useFolders";
 import { useDrawings } from "../hooks/useDrawings";
 import { useAuth } from "../context/AuthContext";
-import { getRoleConfig } from "../constants/roleConfig";
+
 
 const GRID_COLUMNS = 3;
 
@@ -72,7 +72,7 @@ export default function DrawingsScreen({ navigation, route }) {
     }
   }, [folders, currentFolderId]);
 
-  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing, renameDrawing, deleteDrawing } = useDrawings(
+  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing, replaceDrawing, renameDrawing, deleteDrawing } = useDrawings(
     siteId,
     currentFolder
   );
@@ -140,6 +140,27 @@ export default function DrawingsScreen({ navigation, route }) {
       setPendingImageUri(null);
     } catch (e) {
       Alert.alert("Upload failed", e?.message || "Could not upload drawing.");
+    }
+  }
+
+  async function handleReplaceDrawing(item) {
+    if (!isManager) {
+      Alert.alert("Restricted", "You don't have permission to replace drawings.");
+      return;
+    }
+
+    try{
+      const uri = await pickFromLibrary();
+      if(!uri) return;
+
+      await replaceDrawing(item, uri, {
+        title: item.title,
+        description: item.description || "",
+      });
+      
+      Alert.alert("Success", "Drawing replaced successfully.");
+    } catch (e) {
+      Alert.alert("Replace failed", e?.message || "Could not replace drawing.");
     }
   }
 
@@ -294,10 +315,10 @@ export default function DrawingsScreen({ navigation, route }) {
     const isFolder = item.kind === "folder";
     const options = isFolder
       ? ["Open", "Rename", "Delete", "Cancel"]
-      : ["View", "Rename", "Delete", "Cancel"];
+      : ["View", "Replace", "Rename", "Delete", "Cancel"];
 
     const cancelButtonIndex = options.length - 1;
-    const destructiveButtonIndex = 2;
+    const destructiveButtonIndex = 3;
 
   
     Alert.alert(
@@ -327,6 +348,12 @@ export default function DrawingsScreen({ navigation, route }) {
   if(action === "view") {
     if (item.kind === "drawing") {
       navigation.navigate("DrawingDetail", { siteId, drawingId: item.id });
+    }
+  }
+
+  if(action === "replace") {
+    if (item.kind === "drawing") {
+      handleReplaceDrawing(item);
     }
   }
 
