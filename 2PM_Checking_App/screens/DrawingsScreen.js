@@ -207,7 +207,7 @@ export default function DrawingsScreen({ navigation, route }) {
         >
           <View style={styles.gridThumbWrap}>
             {item.fileUrl ? (
-              <Image source={{ uri: item.fileUrl }} style={styles.gridThumb} resizeMode="cover" />
+              <Image source={{ uri: item.fileUrl }} style={styles.gridThumb} resizeMode="contain" />
             ) : (
               <Ionicons name="image-outline" size={40} color="#9CA3AF" />
             )}

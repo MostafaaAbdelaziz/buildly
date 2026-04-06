@@ -12,7 +12,7 @@ export async function pickFromLibrary() {
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
+    allowsEditing: false,
     quality: 0.8,
   });
   if (!result.canceled) {
@@ -72,7 +72,7 @@ export default function IssueImagePicker({ value, onChange }) {
     if (!ok) return;
 
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
+      allowsEditing: false,
       quality: 0.8,
     });
 
