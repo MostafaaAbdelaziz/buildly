@@ -45,8 +45,7 @@ function formatTs(ts) {
 export default function DrawingsScreen({ navigation, route }) {
   const { siteId, siteName } = route.params ?? {};
   const { role } = useAuth();
-  const roleCfg = getRoleConfig(role);
-  const canEdit = roleCfg?.canCreateIssue || roleCfg?.canResolveIssue || roleCfg?.canCreateSchedule;
+  const isManager = role == "manager";
   const { folders, loading: foldersLoading, error: foldersError, createFolder, renameFolder, deleteFolder } = useFolders(siteId);
 
   const [currentFolderId, setCurrentFolderId] = useState(null);
@@ -98,7 +97,7 @@ export default function DrawingsScreen({ navigation, route }) {
   }
 
   function handleCreateFolder() {
-    if (!canEdit) {
+    if (!isManager) {
       Alert.alert("Restricted", "Only managers can create folders.");
       return;
     }
@@ -120,7 +119,7 @@ export default function DrawingsScreen({ navigation, route }) {
   }
 
   async function handleUpload() {
-    if (!canEdit) {
+    if (!isManager) {
       Alert.alert("Restricted", "You don't have permission to upload drawings.");
       return;
     }
@@ -189,7 +188,7 @@ export default function DrawingsScreen({ navigation, route }) {
               {item.name}
             </Text>
 
-          {canEdit ? (
+          {isManager ? (
             <TouchableOpacity
               onPress={() => openItemActions(item)}
             >
@@ -217,7 +216,7 @@ export default function DrawingsScreen({ navigation, route }) {
             {item.title || "Drawing"}
           </Text>
 
-          {canEdit ? (
+          {isManager ? (
             <TouchableOpacity
               onPress={() => openItemActions(item)}
               hitSlop={10}
@@ -244,7 +243,7 @@ export default function DrawingsScreen({ navigation, route }) {
               <Text style={styles.listSub}>Folder · {formatTs(item.updatedAt)}</Text>
             </View>
 
-            {canEdit ? (
+            {isManager ? (
               <TouchableOpacity
                 onPress={() => openItemActions(item)}
               >
@@ -269,7 +268,7 @@ export default function DrawingsScreen({ navigation, route }) {
             </Text>
           </View>
 
-          {canEdit ? (
+          {isManager ? (
             <TouchableOpacity
               onPress={() => openItemActions(item)}
             >
@@ -288,6 +287,8 @@ export default function DrawingsScreen({ navigation, route }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   function openItemActions(item) {
+    if(!isManager) { return; }
+
     setSelectedItem(item);
 
     const isFolder = item.kind === "folder";
@@ -298,6 +299,7 @@ export default function DrawingsScreen({ navigation, route }) {
     const cancelButtonIndex = options.length - 1;
     const destructiveButtonIndex = 2;
 
+  
     Alert.alert(
       item.kind === "folder" ? "Folder actions" : "File actions",
       item.name || item.title || "Item",
@@ -313,6 +315,7 @@ export default function DrawingsScreen({ navigation, route }) {
       }))
     );
   }
+
 
   function handleItemAction(item, action) {
 
@@ -389,7 +392,7 @@ export default function DrawingsScreen({ navigation, route }) {
               <Ionicons name="list-outline" size={20} color={viewMode === "list" ? "#111827" : "#6B7280"} />
             </TouchableOpacity>
           </View>
-          {canEdit ? (
+          {isManager ? (
             <TouchableOpacity onPress={handleCreateFolder}>
               <Text style={styles.sectionAction}>+ New folder</Text>
             </TouchableOpacity>
@@ -423,7 +426,7 @@ export default function DrawingsScreen({ navigation, route }) {
         {currentFolder ? (
           <View style={styles.uploadSection}>
             <IssueImagePicker value={pendingImageUri} onChange={setPendingImageUri} />
-            <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} disabled={!canEdit}>
+            <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} disabled={!isManager}>
               <Text style={styles.uploadText}>Upload drawing</Text>
             </TouchableOpacity>
           </View>
