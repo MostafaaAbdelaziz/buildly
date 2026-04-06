@@ -371,10 +371,6 @@ export default function DrawingsScreen({ navigation, route }) {
           ) : (
             <View style={styles.backPlaceholder} />
           )}
-
-          <Text style={styles.breadcrumb} numberOfLines={2}>
-            {currentFolder ? currentFolder.path || currentFolder.name : "All folders"}
-          </Text>
         </View>
 
         <View style={styles.actionsRow}>
@@ -423,16 +419,14 @@ export default function DrawingsScreen({ navigation, route }) {
           )}
         </View>
 
-        {currentFolder ? (
+        {currentFolder && isManager ? (
           <View style={styles.uploadSection}>
             <IssueImagePicker value={pendingImageUri} onChange={setPendingImageUri} />
             <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} disabled={!isManager}>
               <Text style={styles.uploadText}>Upload drawing</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <Text style={styles.hint}>Open a folder to upload drawings.</Text>
-        )}
+        ): null}
       </View>
     </Screen>
   );

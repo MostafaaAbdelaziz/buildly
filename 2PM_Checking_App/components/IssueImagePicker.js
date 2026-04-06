@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Image, Platform, StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-
+import { useAuth } from "../context/AuthContext";
 
 export async function pickFromLibrary() {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -22,6 +22,8 @@ export async function pickFromLibrary() {
 
 export default function IssueImagePicker({ value, onChange }) {
   const [error, setError] = useState("");
+  const { role } = useAuth();
+  const isManager = role == "manager";
 
   async function requestCameraPermission() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -80,39 +82,33 @@ export default function IssueImagePicker({ value, onChange }) {
     }
   }
 
-  function removeImage() {
-    setError("");
-    onChange?.(null);
-  }
-
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>Image</Text>
 
-      <View style={styles.row}>
-        <TouchableOpacity style={styles.btn} onPress={takePhoto}>
-          <Text style={styles.btnText}>Use Camera</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.btn} onPress={handlePickFromLibrary}>
-          <Text style={styles.btnText}>Pick Image</Text>
-        </TouchableOpacity>
-
-        {value ? (
-          <TouchableOpacity style={[styles.btn, styles.danger]} onPress={removeImage}>
-            <Text style={styles.btnText}>Remove</Text>
+      {isManager &&(
+        <>
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.btn} onPress={takePhoto}>
+            <Text style={styles.btnText}>Use Camera</Text>
           </TouchableOpacity>
-        ) : null}
-      </View>
 
-      {value ? (
-        <Image source={{ uri: value }} style={styles.preview} />
-      ) : (
-        <Text style={styles.helper}>No image selected yet.</Text>
-      )}
+          <TouchableOpacity style={styles.btn} onPress={handlePickFromLibrary}>
+            <Text style={styles.btnText}>Pick Image</Text>
+          </TouchableOpacity>
+        </View>
+      
+          {value ? (
+            <Image source={{ uri: value }} style={styles.preview} />
+          ) : (
+            <Text style={styles.helper}>No image selected yet.</Text>
+          )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          </>
+        )}
+        </View>
   );
 }
 
