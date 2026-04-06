@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import MapView, { Marker } from "react-native-maps";
+import MapView from "react-native-map-clustering";
+import { Marker } from "react-native-maps";
 import { useAuth } from "../context/AuthContext";
 import { useSites } from "../hooks/useSites";
 import { useFirestoreIssuesBySites } from "../hooks/useFirestoreIssues";
@@ -52,6 +53,7 @@ export default function MapScreen({ route, navigation }) {
 
   const issuesWithCoords = useMemo(() => {
     return (issues || [])
+      .filter((i) => i.status !== "Resolved")
       .map((i) => ({ issue: i, coord: getIssueCoord(i) }))
       .filter((x) => x.coord);
   }, [issues]);
