@@ -4,6 +4,7 @@ import {
   uploadDrawing as repoUploadDrawing,
   replaceDrawing as repoReplaceDrawing,
   renameDrawing as repoRenameDrawing,
+  deleteDrawing as repoDeleteDrawing,
 } from "../services/drawingRepository";
 
 export function useDrawings(siteId, folder) {
@@ -47,7 +48,10 @@ export function useDrawings(siteId, folder) {
   async function renameDrawing(drawing, newName) {
     return repoRenameDrawing(siteId, drawing, newName);
   }
-
+  
+  async function deleteDrawing(drawing) {
+    return repoDeleteDrawing(siteId, drawing);
+  }
 
   return {
     drawings,
@@ -56,6 +60,7 @@ export function useDrawings(siteId, folder) {
     uploadDrawing,
     replaceDrawing,
     renameDrawing,
+    deleteDrawing,
   };
 }
 

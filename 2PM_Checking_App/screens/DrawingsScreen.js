@@ -17,9 +17,6 @@ import { useFolders } from "../hooks/useFolders";
 import { useDrawings } from "../hooks/useDrawings";
 import { useAuth } from "../context/AuthContext";
 import { getRoleConfig } from "../constants/roleConfig";
-import { set } from "firebase/database";
-import { renameDrawing } from "../services/drawingRepository";
-
 
 const GRID_COLUMNS = 3;
 
@@ -50,7 +47,7 @@ export default function DrawingsScreen({ navigation, route }) {
   const { role } = useAuth();
   const roleCfg = getRoleConfig(role);
   const canEdit = roleCfg?.canCreateIssue || roleCfg?.canResolveIssue || roleCfg?.canCreateSchedule;
-  const { folders, loading: foldersLoading, error: foldersError, createFolder, renameFolder } = useFolders(siteId);
+  const { folders, loading: foldersLoading, error: foldersError, createFolder, renameFolder, deleteFolder } = useFolders(siteId);
 
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [viewMode, setViewMode] = useState("icons");
@@ -76,7 +73,7 @@ export default function DrawingsScreen({ navigation, route }) {
     }
   }, [folders, currentFolderId]);
 
-  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing, renameDrawing } = useDrawings(
+  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing, renameDrawing, deleteDrawing } = useDrawings(
     siteId,
     currentFolder
   );
@@ -160,6 +157,18 @@ export default function DrawingsScreen({ navigation, route }) {
       }
     } catch (e) {
       Alert.alert("Error", e?.message || "Failed to rename.");
+    }
+  }
+
+  async function deleteItem(item) {
+    try {
+      if (item.kind === "folder") {
+        await deleteFolder(item);
+      } else{
+        await deleteDrawing(item);
+      }
+    } catch (e) {
+      Alert.alert("Error", e?.message || "Failed to delete.");
     }
   }
 
@@ -284,10 +293,10 @@ export default function DrawingsScreen({ navigation, route }) {
     const isFolder = item.kind === "folder";
     const options = isFolder
       ? ["Open", "Rename", "Delete", "Cancel"]
-      : ["View", "Rename", "Cancel"];
+      : ["View", "Rename", "Delete", "Cancel"];
 
     const cancelButtonIndex = options.length - 1;
-    const destructiveButtonIndex = isFolder ? 2 : -1;
+    const destructiveButtonIndex = 2;
 
     Alert.alert(
       item.kind === "folder" ? "Folder actions" : "File actions",

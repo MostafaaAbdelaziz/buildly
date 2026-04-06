@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   setDoc,
+  deleteDoc,
   updateDoc,
   query,
   where,
@@ -171,5 +172,15 @@ export async function renameDrawing(siteId, drawing, newName) {
     title: newName,
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function deleteDrawing(siteId, drawing) {
+  const drawingRef = doc(siteDrawingsCol(siteId), drawing.id);
+  await deleteDoc(drawingRef);
+}
+
+export async function deleteFolder(siteId, folder) {
+  const folderRef = doc(siteFoldersCol(siteId), folder.id);
+  await deleteDoc(folderRef);
 }
 
