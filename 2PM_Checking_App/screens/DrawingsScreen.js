@@ -12,11 +12,11 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
-import IssueImagePicker from "../components/IssueImagePicker";
+import IssueImagePicker, { pickFromLibrary } from "../components/IssueImagePicker";
 import { useFolders } from "../hooks/useFolders";
 import { useDrawings } from "../hooks/useDrawings";
 import { useAuth } from "../context/AuthContext";
-import { getRoleConfig } from "../constants/roleConfig";
+
 
 const GRID_COLUMNS = 3;
 
@@ -45,13 +45,13 @@ function formatTs(ts) {
 export default function DrawingsScreen({ navigation, route }) {
   const { siteId, siteName } = route.params ?? {};
   const { role } = useAuth();
-  const roleCfg = getRoleConfig(role);
-  const canEdit = roleCfg?.canCreateIssue || roleCfg?.canResolveIssue || roleCfg?.canCreateSchedule;
-  const { folders, loading: foldersLoading, error: foldersError, createFolder } = useFolders(siteId);
+  const isManager = role == "manager";
+  const { folders, loading: foldersLoading, error: foldersError, createFolder, renameFolder, deleteFolder } = useFolders(siteId);
 
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [viewMode, setViewMode] = useState("icons");
   const [pendingImageUri, setPendingImageUri] = useState(null);
+
 
   const currentFolder = useMemo(() => {
     if (!currentFolderId) return null;
@@ -72,7 +72,7 @@ export default function DrawingsScreen({ navigation, route }) {
     }
   }, [folders, currentFolderId]);
 
-  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing } = useDrawings(
+  const { drawings, loading: drawingsLoading, error: drawingsError, uploadDrawing, replaceDrawing, renameDrawing, deleteDrawing } = useDrawings(
     siteId,
     currentFolder
   );
@@ -97,7 +97,7 @@ export default function DrawingsScreen({ navigation, route }) {
   }
 
   function handleCreateFolder() {
-    if (!canEdit) {
+    if (!isManager) {
       Alert.alert("Restricted", "Only managers can create folders.");
       return;
     }
@@ -119,7 +119,7 @@ export default function DrawingsScreen({ navigation, route }) {
   }
 
   async function handleUpload() {
-    if (!canEdit) {
+    if (!isManager) {
       Alert.alert("Restricted", "You don't have permission to upload drawings.");
       return;
     }
@@ -143,9 +143,54 @@ export default function DrawingsScreen({ navigation, route }) {
     }
   }
 
+  async function handleReplaceDrawing(item) {
+    if (!isManager) {
+      Alert.alert("Restricted", "You don't have permission to replace drawings.");
+      return;
+    }
+
+    try{
+      const uri = await pickFromLibrary();
+      if(!uri) return;
+
+      await replaceDrawing(item, uri, {
+        title: item.title,
+        description: item.description || "",
+      });
+      
+      Alert.alert("Success", "Drawing replaced successfully.");
+    } catch (e) {
+      Alert.alert("Replace failed", e?.message || "Could not replace drawing.");
+    }
+  }
+
   const openFolder = useCallback((folderId) => {
     setCurrentFolderId(folderId);
   }, []);
+
+  async function renameItem(item, newName) {
+    try {
+      if (item.kind === "folder") {
+        await renameFolder(item, newName);
+      } else{
+        await renameDrawing(item, newName);
+      }
+    } catch (e) {
+      Alert.alert("Error", e?.message || "Failed to rename.");
+    }
+  }
+
+  async function deleteItem(item) {
+    try {
+      if (item.kind === "folder") {
+        await deleteFolder(item);
+      } else{
+        await deleteDrawing(item);
+      }
+    } catch (e) {
+      Alert.alert("Error", e?.message || "Failed to delete.");
+    }
+  }
 
   const renderIconItem = useCallback(
     ({ item }) => {
@@ -163,6 +208,14 @@ export default function DrawingsScreen({ navigation, route }) {
             <Text style={styles.gridLabel} numberOfLines={2}>
               {item.name}
             </Text>
+
+          {isManager ? (
+            <TouchableOpacity
+              onPress={() => openItemActions(item)}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+            </TouchableOpacity>
+          ) : null}
           </TouchableOpacity>
         );
       }
@@ -175,7 +228,7 @@ export default function DrawingsScreen({ navigation, route }) {
         >
           <View style={styles.gridThumbWrap}>
             {item.fileUrl ? (
-              <Image source={{ uri: item.fileUrl }} style={styles.gridThumb} resizeMode="cover" />
+              <Image source={{ uri: item.fileUrl }} style={styles.gridThumb} resizeMode="contain" />
             ) : (
               <Ionicons name="image-outline" size={40} color="#9CA3AF" />
             )}
@@ -183,6 +236,15 @@ export default function DrawingsScreen({ navigation, route }) {
           <Text style={styles.gridLabel} numberOfLines={2}>
             {item.title || "Drawing"}
           </Text>
+
+          {isManager ? (
+            <TouchableOpacity
+              onPress={() => openItemActions(item)}
+              hitSlop={10}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+            </TouchableOpacity>
+          ) : null}
         </TouchableOpacity>
       );
     },
@@ -201,6 +263,14 @@ export default function DrawingsScreen({ navigation, route }) {
               </Text>
               <Text style={styles.listSub}>Folder · {formatTs(item.updatedAt)}</Text>
             </View>
+
+            {isManager ? (
+              <TouchableOpacity
+                onPress={() => openItemActions(item)}
+              >
+                <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+              </TouchableOpacity>
+            ) : null}
           </TouchableOpacity>
         );
       }
@@ -218,6 +288,14 @@ export default function DrawingsScreen({ navigation, route }) {
               {formatBytes(item.fileSizeBytes)} · v{item.version || 1} · {formatTs(item.updatedAt)}
             </Text>
           </View>
+
+          {isManager ? (
+            <TouchableOpacity
+              onPress={() => openItemActions(item)}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color="#4B5563" />
+            </TouchableOpacity>
+          ) : null}
         </TouchableOpacity>
       );
     },
@@ -226,6 +304,85 @@ export default function DrawingsScreen({ navigation, route }) {
 
   const loading = foldersLoading || (currentFolder && drawingsLoading);
   const listError = foldersError || (currentFolder && drawingsError);
+
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  function openItemActions(item) {
+    if(!isManager) { return; }
+
+    setSelectedItem(item);
+
+    const isFolder = item.kind === "folder";
+    const options = isFolder
+      ? ["Open", "Rename", "Delete", "Cancel"]
+      : ["View", "Replace", "Rename", "Delete", "Cancel"];
+
+    const cancelButtonIndex = options.length - 1;
+    const destructiveButtonIndex = 3;
+
+  
+    Alert.alert(
+      item.kind === "folder" ? "Folder actions" : "File actions",
+      item.name || item.title || "Item",
+      options.map((option, index) => ({
+        text: option,
+        style:
+          index === cancelButtonIndex
+            ? "cancel"
+            : index === destructiveButtonIndex
+            ? "destructive"
+            : "default",
+        onPress: () => handleItemAction(item, option.toLowerCase()),
+      }))
+    );
+  }
+
+
+  function handleItemAction(item, action) {
+
+  if(action === "open") {
+    if (item.kind === "folder") {
+      setCurrentFolderId(item.id);
+    }
+  }
+  if(action === "view") {
+    if (item.kind === "drawing") {
+      navigation.navigate("DrawingDetail", { siteId, drawingId: item.id });
+    }
+  }
+
+  if(action === "replace") {
+    if (item.kind === "drawing") {
+      handleReplaceDrawing(item);
+    }
+  }
+
+  if (action === "rename") {
+    Alert.prompt?.("Rename", "Enter new name", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Save",
+        onPress: async (name) => {
+          if (!name?.trim()) return;
+          await renameItem(item, name.trim());
+        },
+      },
+    ], "plain-text", item.name || item.title || "");
+  }
+
+  if (action === "delete") {
+    Alert.alert("Delete", "This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          await deleteItem(item);
+        },
+      },
+    ]);
+  }
+}
 
   return (
     <Screen edges={[]}>
@@ -241,10 +398,6 @@ export default function DrawingsScreen({ navigation, route }) {
           ) : (
             <View style={styles.backPlaceholder} />
           )}
-
-          <Text style={styles.breadcrumb} numberOfLines={2}>
-            {currentFolder ? currentFolder.path || currentFolder.name : "All folders"}
-          </Text>
         </View>
 
         <View style={styles.actionsRow}>
@@ -262,7 +415,7 @@ export default function DrawingsScreen({ navigation, route }) {
               <Ionicons name="list-outline" size={20} color={viewMode === "list" ? "#111827" : "#6B7280"} />
             </TouchableOpacity>
           </View>
-          {canEdit ? (
+          {isManager ? (
             <TouchableOpacity onPress={handleCreateFolder}>
               <Text style={styles.sectionAction}>+ New folder</Text>
             </TouchableOpacity>
@@ -293,16 +446,14 @@ export default function DrawingsScreen({ navigation, route }) {
           )}
         </View>
 
-        {currentFolder ? (
+        {currentFolder && isManager ? (
           <View style={styles.uploadSection}>
             <IssueImagePicker value={pendingImageUri} onChange={setPendingImageUri} />
-            <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} disabled={!canEdit}>
+            <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} disabled={!isManager}>
               <Text style={styles.uploadText}>Upload drawing</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <Text style={styles.hint}>Open a folder to upload drawings.</Text>
-        )}
+        ): null}
       </View>
     </Screen>
   );

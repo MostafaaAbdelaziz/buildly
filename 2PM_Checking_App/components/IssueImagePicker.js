@@ -1,9 +1,29 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Image, Platform, StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "../context/AuthContext";
+
+export async function pickFromLibrary() {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    alert("Photo library permission is required to pick an image.");
+    return null;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: false,
+    quality: 0.8,
+  });
+  if (!result.canceled) {
+    return result.assets?.[0]?.uri || null;
+  }
+}
 
 export default function IssueImagePicker({ value, onChange }) {
   const [error, setError] = useState("");
+  const { role } = useAuth();
+  const isManager = role == "manager";
 
   async function requestCameraPermission() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -26,20 +46,15 @@ export default function IssueImagePicker({ value, onChange }) {
     return true;
   }
 
-  async function pickFromLibrary() {
-    setError("");
-    const ok = await requestMediaPermission();
-    if (!ok) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const uri = result.assets?.[0]?.uri;
-      onChange?.(uri);
+  async function handlePickFromLibrary() {
+    try{
+      setError("");
+      const uri = await pickFromLibrary();
+      if (uri) {
+        onChange?.(uri);
+      }
+    } catch (err) {
+      setError("An error occurred while picking the image.");
     }
   }
 
@@ -57,7 +72,7 @@ export default function IssueImagePicker({ value, onChange }) {
     if (!ok) return;
 
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
+      allowsEditing: false,
       quality: 0.8,
     });
 
@@ -67,39 +82,33 @@ export default function IssueImagePicker({ value, onChange }) {
     }
   }
 
-  function removeImage() {
-    setError("");
-    onChange?.(null);
-  }
-
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>Image</Text>
 
-      <View style={styles.row}>
-        <TouchableOpacity style={styles.btn} onPress={takePhoto}>
-          <Text style={styles.btnText}>Use Camera</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.btn} onPress={pickFromLibrary}>
-          <Text style={styles.btnText}>Pick Image</Text>
-        </TouchableOpacity>
-
-        {value ? (
-          <TouchableOpacity style={[styles.btn, styles.danger]} onPress={removeImage}>
-            <Text style={styles.btnText}>Remove</Text>
+      {isManager &&(
+        <>
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.btn} onPress={takePhoto}>
+            <Text style={styles.btnText}>Use Camera</Text>
           </TouchableOpacity>
-        ) : null}
-      </View>
 
-      {value ? (
-        <Image source={{ uri: value }} style={styles.preview} />
-      ) : (
-        <Text style={styles.helper}>No image selected yet.</Text>
-      )}
+          <TouchableOpacity style={styles.btn} onPress={handlePickFromLibrary}>
+            <Text style={styles.btnText}>Pick Image</Text>
+          </TouchableOpacity>
+        </View>
+      
+          {value ? (
+            <Image source={{ uri: value }} style={styles.preview} />
+          ) : (
+            <Text style={styles.helper}>No image selected yet.</Text>
+          )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          </>
+        )}
+        </View>
   );
 }
 

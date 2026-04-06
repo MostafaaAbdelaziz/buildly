@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   setDoc,
+  deleteDoc,
   updateDoc,
   query,
   where,
@@ -163,5 +164,23 @@ export async function replaceDrawing(siteId, drawing, localUri, metadata = {}) {
     title: metadata.title ?? drawing.title ?? "Untitled drawing",
     updatedAt: now,
   });
+}
+
+export async function renameDrawing(siteId, drawing, newName) {
+  const drawingRef = doc(siteDrawingsCol(siteId), drawing.id);
+  await updateDoc(drawingRef, {
+    title: newName,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteDrawing(siteId, drawing) {
+  const drawingRef = doc(siteDrawingsCol(siteId), drawing.id);
+  await deleteDoc(drawingRef);
+}
+
+export async function deleteFolder(siteId, folder) {
+  const folderRef = doc(siteFoldersCol(siteId), folder.id);
+  await deleteDoc(folderRef);
 }
 
