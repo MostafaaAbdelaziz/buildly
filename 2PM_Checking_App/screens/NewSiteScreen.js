@@ -1,20 +1,55 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Alert, ScrollView } from "react-native";
+import * as Location from "expo-location";
 import Screen from "../components/Screen";
 import AppText from "../components/AppText";
 import Button from "../components/Button";
 import ThemedTextInput from "../components/ThemedTextInput";
 import { useAuth } from "../context/AuthContext";
 import { buildSitePayload, createSite } from "../services/siteRepository";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function NewSiteScreen({ route, navigation }) {
   const siteName = route?.params?.siteName || "New site";
-  const { user, role } = useAuth();
+  const { user } = useAuth();
+  const tabBarPadding = useTabBarPadding();
+  const [foremanEmail, setForemanEmail] = useState("");
 
   const [addressLine1, setAddressLine1] = useState("");
   const [cityState, setCityState] = useState("");
   const [description, setDescription] = useState("");
+  const [location, setLocation] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const picked = route?.params?.pickedLocation;
+    if (picked) {
+      setLocation(picked);
+      navigation.setParams({ pickedLocation: undefined });
+    }
+  }, [route?.params?.pickedLocation, navigation]);
+
+  function openMapPicker() {
+    navigation.navigate("Map", {
+      mode: "pick",
+      initialLocation: location,
+      returnTo: "NewSite",
+      siteName,
+    });
+  }
+
+  async function useCurrentLocation() {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Location permission is required to use your current location.");
+      return;
+    }
+    const loc = await Location.getCurrentPositionAsync();
+    setLocation({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+    });
+  }
 
   async function handleCreate() {
     const trimmedName = (siteName || "").trim();
@@ -35,9 +70,11 @@ export default function NewSiteScreen({ route, navigation }) {
         addressLine1,
         cityState,
         description,
+        foremanEmail: foremanEmail.trim() || undefined,
+        location: location || undefined,
       });
       const ref = await createSite(payload);
-      navigation.navigate("SiteDetail", { siteId: ref.id });
+      navigation.replace("SiteDetail", { siteId: ref.id });
     } catch (e) {
       console.log("NewSiteScreen create error:", e?.message);
       Alert.alert("Could not create site", "Something went wrong saving this site. Try again.");
@@ -49,7 +86,7 @@ export default function NewSiteScreen({ route, navigation }) {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarPadding }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -95,6 +132,48 @@ export default function NewSiteScreen({ route, navigation }) {
             multiline
           />
 
+          <AppText variant="body" bold style={[styles.sectionLabel, styles.mapSectionLabel]}>
+            Map location
+          </AppText>
+          <AppText variant="caption" style={styles.sectionCaption}>
+            Optional. Tag where this site appears on the team map (home marker).
+          </AppText>
+          <Button
+            variant="secondary"
+            title={
+              location
+                ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
+                : "Pick location on map"
+            }
+            onPress={openMapPicker}
+            fullWidth
+          />
+          <Button
+            variant="tertiary"
+            tone="positive"
+            title="Use current location"
+            onPress={useCurrentLocation}
+            fullWidth
+          />
+          {location ? (
+            <Button
+              variant="tertiary"
+              title="Clear map location"
+              onPress={() => setLocation(null)}
+              fullWidth
+            />
+          ) : null}
+
+          <ThemedTextInput
+            label="Foreman email"
+            placeholder="foreman@example.com"
+            value={foremanEmail}
+            onChangeText={setForemanEmail}
+            style={styles.field}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
           <View style={styles.actions}>
             <Button
               title={saving ? "Creating..." : "Create site"}
@@ -138,6 +217,9 @@ const styles = StyleSheet.create({
   },
   sectionCaption: {
     marginBottom: 12,
+  },
+  mapSectionLabel: {
+    marginTop: 8,
   },
   field: {
     marginTop: 4,

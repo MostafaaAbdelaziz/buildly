@@ -33,11 +33,17 @@ async function uploadToCloudinary(localUri) {
     url: json.secure_url,
     provider: "cloudinary",
     storagePath: json.public_id || null,
+    fileSizeBytes: typeof json.bytes === "number" ? json.bytes : null,
+    mimeType: json.format ? `image/${json.format}` : "image/jpeg",
   };
 }
 
 export async function uploadDrawingFile(localUri, { siteId, folderPath }) {
   // In the future we can branch on a setting to choose between Cloudinary, GCS, S3, etc.
+  return uploadToCloudinary(localUri);
+}
+
+export async function uploadIssueImage(localUri) {
   return uploadToCloudinary(localUri);
 }
 

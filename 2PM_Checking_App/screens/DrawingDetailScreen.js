@@ -1,17 +1,46 @@
-import React from "react";
-import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Image, ActivityIndicator, useWindowDimensions } from "react-native";
 import Screen from "../components/Screen";
 import { useRoute } from "@react-navigation/native";
 import { useDrawingDetail } from "../hooks/useDrawingDetail";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
+import ImageModal from "react-native-image-modal";
 
 export default function DrawingDetailScreen() {
   const route = useRoute();
   const { siteId, drawingId } = route.params || {};
   const { drawing, loading, error } = useDrawingDetail(siteId, drawingId);
+  const tabBarPadding = useTabBarPadding();
 
+  const {width: screenWidth, height: screenHeight} = useWindowDimensions();
+  const [imageSize, setImageSize] = React.useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    if (!drawing?.fileUrl) return;
+
+    Image.getSize(
+      drawing.fileUrl,
+      (width, height) => setImageSize({ width, height }),
+      () => setImageSize({ width: 0, height: 0 })
+    );
+  }, [drawing?.fileUrl]);
+
+  const horizontalPadding = 16;
+  const availableWidth = screenWidth - horizontalPadding * 2;
+
+  const aspectRatio = imageSize.width > 0 && imageSize.height > 0 ?
+  imageSize.width / imageSize.height : 1;
+
+  const calculatedHeight = availableWidth / aspectRatio;
+  const maxHeight = screenHeight * 0.75;
+
+  if(calculatedHeight > maxHeight) {
+    calculatedHeight = maxHeight;
+  }
+  
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.container}>
+      <View contentContainerStyle={[styles.container, { paddingBottom: tabBarPadding }]}>
         {loading ? (
           <ActivityIndicator />
         ) : error ? (
@@ -21,20 +50,21 @@ export default function DrawingDetailScreen() {
         ) : (
           <>
             <Text style={styles.title}>{drawing.title || "Drawing"}</Text>
-            <Text style={styles.meta}>
-              v{drawing.version || 1} · Provider: {drawing.provider || "unknown"}
-            </Text>
 
             {drawing.fileUrl ? (
-              <Image source={{ uri: drawing.fileUrl }} style={styles.image} />
+              <ImageModal
+                resizeMode="contain"
+                imageBackgroundColor="#000"
+                modalImageResizeMode="contain"
+                style={[styles.image, { width: availableWidth, height: calculatedHeight }]}
+                source={{ uri: drawing.fileUrl }}
+              />
             ) : (
               <Text style={styles.errorText}>No image URL available.</Text>
             )}
-
-            {drawing.description ? <Text style={styles.description}>{drawing.description}</Text> : null}
           </>
         )}
-      </ScrollView>
+      </View>
     </Screen>
   );
 }

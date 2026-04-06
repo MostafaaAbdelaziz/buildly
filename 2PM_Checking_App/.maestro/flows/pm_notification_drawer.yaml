@@ -1,0 +1,20 @@
+# PM: open notification drawer; optional CHECK_IN_ALERT + navigate to issue (needs unread CHECK_IN_ALERT in Firestore).
+# Env: APP_ID, E2E_EMAIL, E2E_PASSWORD
+# Set RUN_LINKED_ISSUE=1 and ensure a card with issueId exists to run the last steps.
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: false
+- runFlow:
+    file: ../subflows/login.yaml
+- tapOn:
+    id: header-notifications
+- assertVisible: "Notifications"
+- runFlow:
+    when:
+      visible: "CHECK-IN ALERT"
+    commands:
+      - tapOn: "View linked issue"
+      - extendedWaitUntil:
+          visible: "Issue Detail"
+          timeout: 15000

@@ -22,7 +22,12 @@ export function useSiteDetail(siteId) {
       ref,
       (snap) => {
         if (snap.exists()) {
-          setSite({ id: snap.id, ...snap.data() });
+          const data = snap.data();
+          if (data.deleted === true) {
+            setSite(null);
+          } else {
+            setSite({ id: snap.id, ...data });
+          }
         } else {
           setSite(null);
         }

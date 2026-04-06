@@ -24,8 +24,6 @@ export default function LoginScreen({ navigation }) {
 
       // Navigate (role will also be available via AuthContext if you use it)
       navigation.replace("Tabs", { role });
-
-      alert(`Signed in as ${role}: ${email.trim()}`);
     } catch (error) {
       console.log(error.message);
       alert(error.message);
@@ -37,6 +35,7 @@ export default function LoginScreen({ navigation }) {
       <Text style={styles.header}>Welcome</Text>
 
       <ThemedTextInput
+        testID="login-email"
         placeholder="Email"
         keyboardType="email-address"
         autoCapitalize="none"
@@ -45,6 +44,7 @@ export default function LoginScreen({ navigation }) {
       />
 
       <ThemedTextInput
+        testID="login-password"
         placeholder="Password"
         secureTextEntry
         value={password}
@@ -52,7 +52,7 @@ export default function LoginScreen({ navigation }) {
       />
 
       <View style={styles.buttonContainer}>
-        <Button title="Sign In" onPress={handleSignIn} />
+        <Button testID="login-sign-in" title="Sign In" onPress={handleSignIn} />
       </View>
 
       <View style={styles.buttonContainer}>

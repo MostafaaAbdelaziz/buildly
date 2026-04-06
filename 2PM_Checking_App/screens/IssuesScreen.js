@@ -1,157 +1,251 @@
-import React, {useState, useMemo} from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from "react-native";
-import { useIssues } from "../context/IssuesContext";
-import { useAuth } from "../context/AuthContext";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useState } from "react";
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useFirestoreIssues } from "../hooks/useFirestoreIssues";
+import Screen from "../components/Screen";
+import AppText from "../components/AppText";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import { colors } from "../constants/theme";
 
-export default function IssuesScreen({ navigation }) {
-  const { issues, trash, clearTrash } = useIssues();
-  const { role } = useAuth();
-  const [tab, setTab] = useState("current"); 
-  const isManager = role === "manager";
+export default function IssuesScreen({ navigation, route }) {
+  const siteId = route?.params?.siteId || null;
+  const siteName = route?.params?.siteName || "Site";
+  const [tab, setTab] = useState("current");
 
-  const data =
-    tab === "current"
-      ? issues.filter(issue => issue.status?.toLowerCase() !== "closed")
-      : [...issues.filter(issue => issue.status?.toLowerCase() === "closed"), ...trash];
+  const { issues, loading } = useFirestoreIssues(siteId);
 
-  function confirmEmptyTrash() {
-    if (!isManager) {
-      Alert.alert("Access denied", "Only managers can empty the trash.");
-      return;
+  const currentIssues = issues.filter((issue) => issue.status?.toLowerCase() !== "resolved" && issue.status?.toLowerCase() !== "closed");
+  const closedIssues = issues.filter((issue) => issue.status?.toLowerCase() === "resolved" || issue.status?.toLowerCase() === "closed");
+  const data = tab === "current" ? currentIssues : closedIssues;
+
+  function getPriorityColor(priority) {
+    const p = priority?.toLowerCase();
+    if (p === "high") return colors.accent;
+    if (p === "medium") return "#f59e0b";
+    return colors.textSecondary;
+  }
+
+  function getStatusBadgeStyle(status) {
+    const s = status?.toLowerCase();
+    if (s === "closed") {
+      return { backgroundColor: colors.textSecondary, color: colors.textOnPrimary };
     }
-    if (!trash || trash.length === 0) {
-      Alert.alert("Trash", "Trash is already empty.");
-      return;
-    }
+    return { backgroundColor: colors.accent, color: colors.textOnPrimary };
+  }
 
-    Alert.alert("Empty Trash", "Delete all trashed issues permanently?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Empty Trash",
-        style: "destructive",
-        onPress: () => clearTrash?.(),
-      },
-    ]);
+  function renderIssueCard({ item }) {
+    const statusStyle = getStatusBadgeStyle(item.status);
+    const priorityColor = getPriorityColor(item.priority);
+
+    return (
+      <TouchableOpacity
+        onPress={() => navigation.navigate("IssueDetail", { issue: item })}
+        activeOpacity={0.7}
+      >
+        <Card style={styles.issueCard}>
+          <View style={styles.cardHeader}>
+            <AppText variant="body" bold numberOfLines={1} style={styles.cardTitle}>
+              {item.title}
+            </AppText>
+            <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
+              <AppText variant="caption" style={{ color: statusStyle.color }}>
+                {item.status?.toUpperCase()}
+              </AppText>
+            </View>
+          </View>
+
+          <View style={styles.cardMeta}>
+            <View style={styles.priorityTag}>
+              <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
+              <AppText variant="caption" style={{ color: priorityColor }}>
+                {item.priority}
+              </AppText>
+            </View>
+            <AppText variant="caption">•</AppText>
+            <AppText variant="caption">
+          {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : item.createdAt}
+        </AppText>
+          </View>
+
+          {item.createdBy && (
+            <AppText variant="caption" style={styles.createdBy}>
+              By {item.createdBy}
+            </AppText>
+          )}
+        </Card>
+      </TouchableOpacity>
+    );
+  }
+
+  if (!siteId) {
+    return (
+      <Screen edges={[]}>
+        <Card style={styles.emptyCard}>
+          <AppText variant="body" style={styles.emptyText}>
+            No site selected. Open issues from a site on the dashboard, or use the Issues tab to see all issues.
+          </AppText>
+        </Card>
+      </Screen>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Screen edges={[]}><ActivityIndicator style={{ marginTop: 40 }} /></Screen>
+    );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Issues</Text>
-
-        <View style={styles.headerBtns}>
-          {/* Add */}
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => navigation.navigate("CreateIssue")}
-          >
-            <Text style={styles.addText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
+    <Screen edges={[]}>
+      <View style={styles.header}>
+        <AppText variant="title" bold>{siteName}</AppText>
+        <Button
+          variant="primary"
+          tone="positive"
+          title="+ Add"
+          onPress={() =>
+            navigation.navigate("CreateIssue", {
+              siteId,
+              siteName,
+            })
+          }
+          size="sm"
+        />
       </View>
 
-      {/* Optional: Manager quick action */}
-      {isManager ? (
-        <TouchableOpacity style={styles.emptyTrashBtn} onPress={confirmEmptyTrash}>
-          <Text style={styles.emptyTrashText}>Empty Trash (Manager)</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style = {styles.tabs}>
+      <View style={styles.tabs}>
         <TouchableOpacity
           style={[styles.tabBtn, tab === "current" && styles.activeTab]}
           onPress={() => setTab("current")}
+          activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, tab === "current" && styles.activeTabText]}>
-            Current ({issues.filter(issue => issue.status?.toLowerCase() !== "closed").length})
-          </Text>
+          <AppText
+            variant="body"
+            bold
+            style={[styles.tabText, tab === "current" && styles.activeTabText]}
+          >
+            Current ({currentIssues.length})
+          </AppText>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tabBtn, tab === "closed" && styles.activeTab]}
           onPress={() => setTab("closed")}
+          activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, tab === "closed" && styles.activeTabText]}>
-            Closed ({issues.filter(issue => issue.status?.toLowerCase() === "closed").length + trash.length})
-          </Text>
+          <AppText
+            variant="body"
+            bold
+            style={[styles.tabText, tab === "closed" && styles.activeTabText]}
+          >
+            Closed ({closedIssues.length})
+          </AppText>
         </TouchableOpacity>
       </View>
 
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={{ opacity: 0.6 }}>No issues yet. Add one.</Text>}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate("IssueDetail", { issue: item })}
-          >
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.meta}>
-              {item.status} • {item.priority}
-            </Text>
-            <Text style={styles.time}>{item.createdAt}</Text>
-          </TouchableOpacity>
-        )}
+        renderItem={renderIssueCard}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <Card style={styles.emptyCard}>
+            <AppText variant="body" style={styles.emptyText}>
+              {tab === "current"
+                ? "No open issues. Tap + Add to create one."
+                : "No closed issues yet."}
+            </AppText>
+          </Card>
+        }
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },
-
-  headerRow: {
+  header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
-
-  title: { fontSize: 24, fontWeight: "800" },
-
-  headerBtns: { flexDirection: "row", gap: 10 },
-
-  addBtn: { backgroundColor: "black", padding: 10, borderRadius: 10 },
-  addText: { color: "white", fontWeight: "700" },
-
-  trashBtn: { backgroundColor: "#111", padding: 10, borderRadius: 10 },
-  trashText: { color: "white", fontWeight: "800" },
-
-  emptyTrashBtn: {
-    backgroundColor: "#B00020",
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  emptyTrashText: { color: "white", fontWeight: "900", textAlign: "center" },
-
-  card: {
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    marginBottom: 10,
-  },
-  cardTitle: { fontSize: 16, fontWeight: "700" },
-  meta: { marginTop: 4 },
-  time: { fontSize: 12, marginTop: 4, opacity: 0.6 },
 
   tabs: {
     flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    marginBottom: 12,
+    borderWidth: 2.5,
+    borderColor: colors.shadow || "#111",
+    borderRadius: 0,
+    marginBottom: 16,
     overflow: "hidden",
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 14,
     alignItems: "center",
-   },
-  activeTab: { backgroundColor: "black" },
-  tabText: { fontWeight: "700", color: "#555" },
-  activeTabText: { color: "white" },
+    backgroundColor: colors.neutral,
+  },
+  activeTab: {
+    backgroundColor: colors.shadow || "#111",
+  },
+  tabText: {
+    color: colors.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  activeTabText: {
+    color: colors.textOnPrimary,
+  },
 
+  listContent: {
+    paddingBottom: 20,
+  },
+
+  issueCard: {
+    marginBottom: 12,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  cardTitle: {
+    flex: 1,
+    marginRight: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+
+  cardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  priorityTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  createdBy: {
+    marginTop: 4,
+  },
+
+  emptyCard: {
+    alignItems: "center",
+    paddingVertical: 32,
+  },
+  emptyText: {
+    textAlign: "center",
+    color: colors.textSecondary,
+  },
 });

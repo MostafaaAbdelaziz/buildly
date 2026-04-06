@@ -1,6 +1,8 @@
 export const DEFAULT_DAY_WIDTH = 50;
 export const ROW_HEIGHT = 34;
 export const ROW_GAP = 8;
+/** Phase header row height (label column + timeline spacer) */
+export const PHASE_HEADER_HEIGHT = 30;
 export const TASK_NAME_WIDTH = 100;
 export const HEADER_HEIGHT = 32;
 export const BAR_RADIUS = 8;

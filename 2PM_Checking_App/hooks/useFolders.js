@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listenFolders, createFolder, renameFolder } from "../services/drawingRepository";
+import { listenFolders, createFolder, renameFolder, deleteFolder } from "../services/drawingRepository";
 
 export function useFolders(siteId) {
   const [folders, setFolders] = useState([]);
@@ -30,6 +30,7 @@ export function useFolders(siteId) {
     error,
     createFolder: (payload) => createFolder(siteId, payload),
     renameFolder: (folder, newName) => renameFolder(siteId, folder, newName),
+    deleteFolder: (folder) => deleteFolder(siteId, folder),
   };
 }
 

@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   setDoc,
+  deleteDoc,
   updateDoc,
   query,
   where,
@@ -128,6 +129,8 @@ export async function uploadDrawing(siteId, folder, localUri, metadata = {}) {
     storagePath: uploadResult.storagePath || null,
     fileUrl: uploadResult.url,
     provider: uploadResult.provider,
+    fileSizeBytes: uploadResult.fileSizeBytes ?? null,
+    mimeType: uploadResult.mimeType ?? null,
     version: 1,
     isLatest: true,
     uploadedByUserId: metadata.uploadedByUserId || null,
@@ -153,11 +156,31 @@ export async function replaceDrawing(siteId, drawing, localUri, metadata = {}) {
     fileUrl: uploadResult.url,
     storagePath: uploadResult.storagePath || null,
     provider: uploadResult.provider,
+    fileSizeBytes: uploadResult.fileSizeBytes ?? null,
+    mimeType: uploadResult.mimeType ?? null,
     version: nextVersion,
     isLatest: true,
     description: metadata.description ?? drawing.description ?? "",
     title: metadata.title ?? drawing.title ?? "Untitled drawing",
     updatedAt: now,
   });
+}
+
+export async function renameDrawing(siteId, drawing, newName) {
+  const drawingRef = doc(siteDrawingsCol(siteId), drawing.id);
+  await updateDoc(drawingRef, {
+    title: newName,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteDrawing(siteId, drawing) {
+  const drawingRef = doc(siteDrawingsCol(siteId), drawing.id);
+  await deleteDoc(drawingRef);
+}
+
+export async function deleteFolder(siteId, folder) {
+  const folderRef = doc(siteFoldersCol(siteId), folder.id);
+  await deleteDoc(folderRef);
 }
 

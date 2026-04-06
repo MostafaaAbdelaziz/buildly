@@ -1,104 +1,127 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from "react-native";
+import React, { useRef, useState } from "react";
+import { Animated, Pressable, View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
 import WeatherRiskWidget from "../components/WeatherRiskWidget";
 import { colors } from "../constants/theme";
-import NeobrutalIconButton from "../components/NeobrutalIconButton";
 import NeobrutalDialog from "../components/NeobrutalDialog";
-
-// Demo data (replace with Firebase later)
-const MOCK_PROJECTS = [
-  { id: "p1", name: "Project CE4 5297 Red Street", status: "On Track" },
-  { id: "p2", name: "Project CE4 5297 Red Street", status: "Delayed" },
-  { id: "p3", name: "Project CE4 5297 Red Street", status: "Needs Attention" },
-];
+import DashboardCollapsibleSection from "../components/DashboardCollapsibleSection";
+import { useAuth } from "../context/AuthContext";
+import { useSites } from "../hooks/useSites";
+import { useNotifications } from "../hooks/useNotifications";
+import { useSiteMembers } from "../hooks/useSiteMembers";
+import Card from "../components/Card";
+import AppText from "../components/AppText";
+import NotificationsDrawer from "../components/NotificationsDrawer";
+import { useTabBarPadding } from "../hooks/useTabBarPadding";
 
 export default function PMDashboard({ navigation }) {
-  const [projectsCollapsed, setProjectsCollapsed] = useState(false);
+  const { user } = useAuth();
+  const { sites, loading: sitesLoading } = useSites(user?.uid);
+  const { notifications, markRead } = useNotifications(user?.uid);
+  const { handleAccept, handleReject } = useSiteMembers({ uid: user?.uid, name: user?.email ?? "" });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sitesCollapsed, setSitesCollapsed] = useState(false);
+  const [weatherCollapsed, setWeatherCollapsed] = useState(true);
   const [showNewSiteDialog, setShowNewSiteDialog] = useState(false);
   const [newSiteName, setNewSiteName] = useState("");
-
-  // Stable format: "Tue, March 3"
-  const todayLabel = useMemo(() => {
-    const d = new Date();
-    const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
-    const month = d.toLocaleDateString("en-US", { month: "long" });
-    const day = d.getDate();
-    return `${weekday}, ${month} ${day}`;
-  }, []);
+  const tabBarPadding = useTabBarPadding();
 
   return (
     <Screen
-      // override Screen background + padding to match mock
       padding={{ paddingHorizontal: 0, paddingVertical: 0 }}
       style={{ backgroundColor: "#F6F4EE" }}
     >
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+      <NotificationsDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        notifications={notifications}
+        onAccept={async (notif) => {
+          await handleAccept(notif.membershipId, notif.id);
+        }}
+        onReject={async (notif) => {
+          await handleReject(notif.membershipId, notif.id);
+        }}
+        onViewIssue={(issueId) => {
+          navigation.navigate("IssueDetail", { issueId });
+        }}
+        onDismiss={(notif) => markRead(notif.id)}
+      />
+
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Dashboard</Text>
-
-            <TouchableOpacity activeOpacity={0.7} style={styles.dateRow}>
-              <Text style={styles.dateText}>{todayLabel}</Text>
-              <Text style={styles.dateChevron}>⌄</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
-            <Text style={styles.bellIcon}>🔔</Text>
-          </TouchableOpacity>
+          <AppText variant="title" bold style={styles.screenTitle}>
+            Dashboard
+          </AppText>
+          <NeobrutalNotificationButton
+            count={notifications.length}
+            onPress={() => setDrawerOpen(true)}
+          />
         </View>
 
-        {/* 2PM Check Status */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.statusRow}
-          onPress={() => {
-            navigation.navigate("2PMCheck");
-          }}
+        <DashboardCollapsibleSection
+          title="Sites"
+          accentColor={colors.primary}
+          collapsed={sitesCollapsed}
+          onToggle={() => setSitesCollapsed((v) => !v)}
+          onAddPress={() => setShowNewSiteDialog(true)}
+          style={styles.firstSection}
         >
-          <Text style={styles.statusRowText}>2PM Check Status</Text>
-
-          <View style={styles.statusRight}>
-            <Text style={styles.chevronRight}>›</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Weather Risk Widget */}
-        <WeatherRiskWidget />
-
-        {/* Assigned Projects */}
-        <SectionHeader
-          title="Assigned Projects"
-          collapsed={projectsCollapsed}
-          onToggle={() => setProjectsCollapsed((v) => !v)}
-          onAddPress={() => {
-            setShowNewSiteDialog(true);
-          }}
-        />
-
-        {!projectsCollapsed && (
           <View style={styles.sectionBody}>
-            {MOCK_PROJECTS.map((p) => (
-              <ProjectCard
-                key={p.id}
-                name={p.name}
-                status={p.status}
-                onViewProject={() => navigation?.navigate?.("Map")}
-                onViewSchedule={() => navigation?.navigate?.("Schedule")}
-                onInfo={() => {}}
-              />
-            ))}
+            {sitesLoading ? (
+              <AppText variant="body" style={styles.loadingText}>
+                Loading sites...
+              </AppText>
+            ) : sites.length === 0 ? (
+              <AppText variant="body" style={styles.emptyText}>
+                No sites yet. Tap + to add one.
+              </AppText>
+            ) : (
+              sites.map((site) => (
+                <TouchableOpacity
+                  key={site.id}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate("SiteDetail", { siteId: site.id })}
+                >
+                  <Card>
+                    <View style={styles.siteCardHeader}>
+                      <AppText variant="title" bold style={styles.siteName} numberOfLines={1}>
+                        {site.name}
+                      </AppText>
+                      <View style={[styles.statusBadge, site.status === "ACTIVE" && styles.statusBadgeActive]}>
+                        <AppText variant="caption" bold style={styles.statusBadgeText}>
+                          {site.status || "ACTIVE"}
+                        </AppText>
+                      </View>
+                    </View>
+                    {site.description && (
+                      <AppText variant="body" style={styles.siteDescription} numberOfLines={2}>
+                        {site.description}
+                      </AppText>
+                    )}
+                    {site.address && (
+                      <AppText variant="caption" style={styles.siteAddress} numberOfLines={1}>
+                        {[site.address.line1, site.address.cityState].filter(Boolean).join(", ")}
+                      </AppText>
+                    )}
+                  </Card>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
-        )}
+        </DashboardCollapsibleSection>
 
-        {/* Open issues today */}
-        <TouchableOpacity activeOpacity={0.85} style={styles.issuesRow}>
-          <Text style={styles.issuesIcon}>⚠️</Text>
-          <Text style={styles.issuesText}>5 open issues today</Text>
-          <Text style={styles.chevronRight}>›</Text>
-        </TouchableOpacity>
+        <DashboardCollapsibleSection
+          title="Weather"
+          accentColor="#64748b"
+          collapsed={weatherCollapsed}
+          onToggle={() => setWeatherCollapsed((v) => !v)}
+        >
+          <WeatherRiskWidget />
+        </DashboardCollapsibleSection>
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -128,70 +151,45 @@ export default function PMDashboard({ navigation }) {
   );
 }
 
-/* ---------- Small UI components ---------- */
+function NeobrutalNotificationButton({ count, onPress }) {
+  const translate = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
-function SectionHeader({ title, collapsed, onToggle, onAddPress }) {
+  const handlePressIn = () => {
+    Animated.timing(translate, { toValue: { x: 4, y: 4 }, duration: 80, useNativeDriver: true }).start();
+  };
+  const handlePressOut = () => {
+    Animated.timing(translate, { toValue: { x: 0, y: 0 }, duration: 80, useNativeDriver: true }).start();
+  };
+
   return (
-    <View style={styles.sectionHeader}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onToggle}
-        style={styles.sectionHeaderLeft}
+    <View style={styles.notifWrapper}>
+      <View style={styles.notifShadow} />
+      <Pressable
+        testID="header-notifications"
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={onPress}
+        style={styles.notifPressable}
+        accessibilityRole="button"
+        accessibilityLabel="Notifications"
       >
-        <Text style={styles.sectionHeaderText}>{title}</Text>
-        <Text style={styles.sectionChevron}>{collapsed ? "⌄" : "⌃"}</Text>
-      </TouchableOpacity>
-
-      {onAddPress && (
-        <NeobrutalIconButton onPress={onAddPress} style={styles.addProjectWrapper} />
-      )}
+        <Animated.View
+          style={[
+            styles.notifFace,
+            { transform: [{ translateX: translate.x }, { translateY: translate.y }] },
+          ]}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.text} />
+        </Animated.View>
+      </Pressable>
+      {count > 0 ? (
+        <View style={styles.notifBadge}>
+          <AppText variant="caption" bold style={styles.notifBadgeText}>
+            {count > 9 ? "9+" : String(count)}
+          </AppText>
+        </View>
+      ) : null}
     </View>
-  );
-}
-
-function ProjectCard({ name, status, onViewProject, onViewSchedule, onInfo }) {
-  return (
-    <View style={styles.projectCard}>
-      <View style={styles.projectTopRow}>
-        <Text style={styles.projectName} numberOfLines={1}>
-          {name}
-        </Text>
-        <StatusPill status={status} />
-      </View>
-
-      <View style={styles.projectDivider} />
-
-      <View style={styles.projectButtonsRow}>
-        <ActionButton icon="📁" label="View Project" onPress={onViewProject} />
-        <ActionButton icon="📅" label="View Schedule" onPress={onViewSchedule} />
-        <IconButton icon="ⓘ" onPress={onInfo} />
-      </View>
-    </View>
-  );
-}
-
-function StatusPill({ status }) {
-  return (
-    <View style={styles.statusPill}>
-      <Text style={styles.statusPillText}>{status}</Text>
-    </View>
-  );
-}
-
-function ActionButton({ icon, label, onPress }) {
-  return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.actionBtn}>
-      <Text style={styles.actionIcon}>{icon}</Text>
-      <Text style={styles.actionText}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function IconButton({ icon, onPress }) {
-  return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.iconBtn}>
-      <Text style={styles.iconBtnText}>{icon}</Text>
-    </TouchableOpacity>
   );
 }
 
@@ -203,192 +201,117 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 28,
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 12,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
+    gap: 12,
   },
-  title: {
-    fontSize: 46,
-    fontWeight: "900",
-    color: "#111",
+  screenTitle: {
+    flex: 1,
+    color: colors.text,
   },
-  dateRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+  notifWrapper: {
+    position: "relative",
+    width: 40,
+    height: 40,
   },
-  dateText: {
-    fontSize: 20,
-    color: "#6B6B6B",
-    fontWeight: "700",
+  notifShadow: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: "#919191",
+    borderWidth: 3,
+    borderColor: "#919191",
+    borderRadius: 8,
   },
-  dateChevron: {
-    fontSize: 16,
-    color: "#6B6B6B",
-    marginTop: Platform.OS === "ios" ? 2 : 0,
+  notifPressable: {
+    position: "relative",
+    width: "100%",
+    height: "100%",
   },
-  bellBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
+  notifFace: {
+    width: 40,
+    height: 40,
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
   },
-  bellIcon: {
-    fontSize: 20,
+  notifBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#F6F4EE",
+  },
+  notifBadgeText: {
+    color: "#fff",
+    fontSize: 10,
   },
 
-  statusRow: {
-    marginTop: 16,
-    marginHorizontal: 20,
-    backgroundColor: "#ECECEC",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  statusRowText: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#111",
-  },
-  statusRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  pill: {
-    backgroundColor: "#DCDCDC",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  pillText: {
-    fontWeight: "900",
-    color: "#555",
-  },
-  chevronRight: {
-    fontSize: 22,
-    color: "#666",
-    marginTop: Platform.OS === "ios" ? -1 : 0,
+  firstSection: {
+    marginTop: 4,
   },
 
-  sectionHeader: {
-    marginTop: 18,
-    marginHorizontal: 20,
-    backgroundColor: "#ECECEC",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sectionHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flexShrink: 1,
-  },
-  sectionHeaderText: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#111",
-  },
-  sectionChevron: {
-    fontSize: 16,
-    color: "#555",
-  },
-  addProjectWrapper: {
-    marginLeft: 12,
-  },
   sectionBody: {
-    marginHorizontal: 20,
-    marginTop: 12,
     gap: 14,
   },
 
-  projectCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#EEE",
-  },
-  projectTopRow: {
+  siteCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    marginBottom: 8,
   },
-  projectName: {
+  siteName: {
     flex: 1,
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#111",
+    marginRight: 12,
   },
-  statusPill: {
-    backgroundColor: "#EFEFEF",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: colors.neutral,
+    borderWidth: 1.5,
+    borderColor: colors.neutralBorder,
   },
-  statusPillText: {
-    fontWeight: "900",
-    color: "#555",
+  statusBadgeActive: {
+    backgroundColor: "#bbf7d0",
+    borderColor: "#16a34a",
   },
-  projectDivider: {
-    height: 1,
-    backgroundColor: "#EEE",
-    marginVertical: 14,
+  statusBadgeText: {
+    color: colors.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  projectButtonsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  siteDescription: {
+    marginBottom: 6,
+    color: colors.textSecondary,
   },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: "#ECECEC",
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  siteAddress: {
+    color: colors.textSecondary,
   },
-  actionIcon: { fontSize: 16 },
-  actionText: { fontWeight: "900", color: "#222" },
 
-  iconBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#ECECEC",
-    alignItems: "center",
-    justifyContent: "center",
+  loadingText: {
+    color: colors.textSecondary,
+    textAlign: "center",
+    paddingVertical: 20,
   },
-  iconBtnText: { fontSize: 18, fontWeight: "900", color: "#222" },
-
-  issuesRow: {
-    marginTop: 18,
-    marginHorizontal: 20,
-    backgroundColor: "#F7F7F8",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#EEE",
+  emptyText: {
+    color: colors.textSecondary,
+    textAlign: "center",
+    paddingVertical: 20,
   },
-  issuesIcon: { fontSize: 18 },
-  issuesText: { flex: 1, fontSize: 20, fontWeight: "900", color: "#111" },
 });

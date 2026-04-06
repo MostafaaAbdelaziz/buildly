@@ -1,0 +1,30 @@
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      notVisible: "Dashboard"
+    commands:
+      - runFlow:
+          when:
+            visible: "2PM_Checking_App"
+          commands:
+            - tapOn: "2PM_Checking_App"
+            - extendedWaitUntil:
+                visible: "Welcome"
+                timeout: 30000
+      - extendedWaitUntil:
+          visible:
+            id: login-email
+          timeout: 20000
+      - tapOn:
+          id: login-email
+      - inputText: ${E2E_EMAIL}
+      - tapOn:
+          id: login-password
+      - inputText: ${E2E_PASSWORD}
+      - tapOn: "Welcome"
+      - tapOn:
+          id: login-sign-in
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 45000

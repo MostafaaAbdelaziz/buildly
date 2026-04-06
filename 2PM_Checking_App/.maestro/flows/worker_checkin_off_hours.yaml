@@ -1,0 +1,22 @@
+# Smoke: same navigation as worker flow but only asserts "Not open yet" outside the 2:00 PM hour.
+# Env: APP_ID, E2E_EMAIL, E2E_PASSWORD, SITE_NAME
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: false
+- runFlow:
+    file: ../subflows/login.yaml
+- scrollUntilVisible:
+    element:
+      text: ${SITE_NAME}
+    direction: DOWN
+    timeout: 20000
+- tapOn: ${SITE_NAME}
+- scrollUntilVisible:
+    element:
+      id: site-daily-checkin
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: site-daily-checkin
+- assertVisible: "Not open yet"

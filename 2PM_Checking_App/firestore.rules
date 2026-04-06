@@ -1,0 +1,155 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ----- Sites collection -----
+    match /sites/{siteId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // ----- Site members collection -----
+    // Any signed-in user can create (manager inviting).
+    // Invitee can accept/reject PENDING invitations.
+    // Inviter (manager) can remove ACTIVE members.
+    match /site_members/{membershipId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() &&
+        (
+          (resource.data.userId == request.auth.uid && resource.data.status == 'PENDING') ||
+          (resource.data.invitedBy == request.auth.uid && request.resource.data.status == 'REMOVED')
+        );
+      allow delete: if false;
+    }
+
+    // ----- Notifications collection -----
+    // Only the recipient can read/mark-read their notifications. Any signed-in user can create.
+    // The reporter (if any) can also update it to link an issue.
+    match /notifications/{notifId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.reporterUserId == request.auth.uid
+      );
+      allow create: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // ----- Drawings folders -----
+    match /sites/{siteId}/folders/{folderId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // ----- Drawings documents -----
+    match /sites/{siteId}/drawings/{drawingId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // ----- Schedules collection -----
+    match /schedules/{scheduleId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // ----- Schedule items (phases) collection -----
+    match /schedule_items/{scheduleItemId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // ----- Tasks collection -----
+    match /tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+    
+    // ----- Phase templates -----
+    match /phase_templates/{templateId} {
+      allow read: if isSignedIn() &&
+        (resource.data.isPublic == true ||
+         resource.data.createdById == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() &&
+        resource.data.createdById == request.auth.uid;
+    }
+
+    // ----- Daily check-ins (per site, per local calendar day, per user) -----
+    function dailyCheckInIdMatchesData(siteId, localDate, userId) {
+      return siteId + '_' + localDate + '_' + userId;
+    }
+
+    // projectManagerId is copied from sites/{siteId} on write so PM list queries work (read rules avoid get()).
+    function dailyCheckInProjectManagerMatchesSite() {
+      return request.resource.data.projectManagerId ==
+        get(/databases/$(database)/documents/sites/$(request.resource.data.siteId)).data.projectManagerId;
+    }
+
+    match /daily_check_ins/{checkInId} {
+      allow read: if isSignedIn() && (
+        resource == null ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.projectManagerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll([
+          'siteId', 'userId', 'projectManagerId', 'localDate', 'status', 'submittedAt'
+        ]) &&
+        request.resource.data.status in ['on_track', 'not_on_track'] &&
+        dailyCheckInProjectManagerMatchesSite() &&
+        checkInId == dailyCheckInIdMatchesData(
+          request.resource.data.siteId,
+          request.resource.data.localDate,
+          request.resource.data.userId
+        );
+
+      allow update: if isSignedIn() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        dailyCheckInProjectManagerMatchesSite() &&
+        (!resource.data.hasAll(['projectManagerId']) ||
+          request.resource.data.projectManagerId == resource.data.projectManagerId) &&
+        checkInId == dailyCheckInIdMatchesData(
+          request.resource.data.siteId,
+          request.resource.data.localDate,
+          request.resource.data.userId
+        );
+
+      allow delete: if false;
+    }
+
+    // ----- Users collection (push tokens, profile data) -----
+    // Each user can only read/write their own document.
+    // Cloud Functions use the Admin SDK which bypasses these rules.
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ----- Issues collection -----
+    match /issues/{issueId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

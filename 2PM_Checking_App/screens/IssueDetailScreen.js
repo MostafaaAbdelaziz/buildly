@@ -1,169 +1,189 @@
-import React, { useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from "react-native";
-import { useIssues } from "../context/IssuesContext";
-import { useAuth } from "../context/AuthContext";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  StyleSheet,
+  Alert,
+  Image,
+  ScrollView,
+} from "react-native";
+import { doc, onSnapshot } from "firebase/firestore";
+import { firebase_fs } from "../firebaseConfig/firebaseConfig";
+import { updateIssueStatus } from "../services/siteRepository";
+import Screen from "../components/Screen";
+import AppText from "../components/AppText";
+import Button from "../components/Button";
+import Card from "../components/Card";
+import { colors } from "../constants/theme";
 
 const STATUSES = ["Open", "In Progress", "Resolved"];
+const STATUS_LABEL = { Open: "Open", "In Progress": "Ongoing", Resolved: "Done" };
+
+function useFirestoreIssueRealtime(issueId) {
+  const [issue, setIssue] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!issueId) {
+      setIssue(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const ref = doc(firebase_fs, "issues", issueId);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        setIssue(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        setLoading(false);
+      },
+      (e) => {
+        console.warn("IssueDetailScreen listener:", e?.message);
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, [issueId]);
+
+  return { issue, loading };
+}
 
 export default function IssueDetailScreen({ route, navigation }) {
-  const { issue } = route.params;
+  const issueId = route.params?.issueId ?? route.params?.issue?.id;
+  const { issue, loading } = useFirestoreIssueRealtime(issueId);
 
-  const { issues,trash,  updateIssue, softDeleteIssue, restoreIssue } = useIssues();
-  const { role } = useAuth();
-  const isManager = role === "manager";
+  async function updateStatus(newStatus) {
+    try {
+      await updateIssueStatus(issueId, newStatus);
+    } catch (err) {
+      Alert.alert("Error", err.message || "Failed to update issue status.");
+    }
+  }
 
-  const currentIssue = useMemo(() => {
+  if (loading) {
     return (
-      issues.find((i) => i.id === issue.id) ||
-      (trash || []).find((t) => t.id === issue.id) ||
-      issue
+      <Screen edges={[]} padding={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 0 }}>
+        <Button variant="secondary" title="Loading…" disabled />
+      </Screen>
     );
-  }, [issues, trash, issue]);
-
-  const isTrashed = useMemo(() => {
-    return (trash || []).some((t) => t.id === currentIssue.id);
-  }, [trash, currentIssue.id]);
-
-  const isClosed = String(currentIssue.status || "").toLowerCase() === "closed";
-  const canEdit = !isTrashed && !isClosed;
-
-  function handleChangeStatus(newStatus) {
-    //  DON'T delete here
-    updateIssue(currentIssue.id, { status: newStatus });
-    navigation.setOptions({ title: newStatus });
   }
 
-  function confirmRestore() {
-    Alert.alert("Restore", "Restore this issue back to Current issues?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Restore",
-        onPress: () => {
-          // Use restoreIssue if your context has it:
-          if (restoreIssue) restoreIssue(currentIssue.id);
+  if (!issue) {
+    return (
+      <Screen edges={[]} padding={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 0 }}>
+        <AppText variant="body">Issue not found.</AppText>
+      </Screen>
+    );
+  }
 
-          navigation.goBack();
-        },
-      },
-    ]);
-  }
-  function confirmMoveToTrash() {
-    Alert.alert("Move to Trash", "Do you want to move this issue to Trash?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Move",
-        style: "destructive",
-        onPress: () => {
-          softDeleteIssue(currentIssue.id);
-          navigation.goBack();
-        },
-      },
-    ]);
-  }
+  const isTrashed = issue.deleted === true;
+  const createdAtLabel = issue.createdAt?.toDate
+    ? issue.createdAt.toDate().toLocaleString()
+    : issue.createdAt ?? "";
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{currentIssue.title}</Text>
+    <Screen edges={[]} padding={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 0 }}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Title */}
+        <AppText variant="title" bold style={styles.title}>
+          {issue.title}
+        </AppText>
 
-      <View style={styles.infoBlock}>
-        
-        <Text style={styles.line}>
-  Created by: {currentIssue.createdBy || "Unknown"}
-</Text>
-        <Text style={styles.line}>Priority: {currentIssue.priority}</Text>
-        <Text style={styles.line}>Status: {currentIssue.status}</Text>
-        <Text style={styles.line}>Created: {currentIssue.createdAt}</Text>
+        {/* Info block */}
+        <Card style={styles.infoCard}>
+          <AppText variant="caption" style={styles.fieldLabel}>Priority</AppText>
+          <AppText variant="body" bold style={styles.fieldValue}>{issue.priority}</AppText>
 
-        <Text style={[styles.line, { marginTop: 10, fontWeight: "800" }]}>
-          Description
-        </Text>
-        <Text style={{ marginBottom: 8 }}>
-          {currentIssue.description || "No description provided."}
-        </Text>
+          <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Status</AppText>
+          <AppText variant="body" bold style={styles.fieldValue}>{STATUS_LABEL[issue.status] ?? issue.status}</AppText>
 
-        {currentIssue.image ? (
-          <Image source={{ uri: currentIssue.image }} style={styles.photo} />
-        ) : null}
-      </View>
+          <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Created</AppText>
+          <AppText variant="body" style={styles.fieldValue}>{createdAtLabel}</AppText>
 
-    {canEdit && (
-      <>
-      <Text style={styles.sectionTitle}>Update status</Text>
+          <AppText variant="body" bold style={[styles.fieldLabel, styles.fieldSpaced]}>Description</AppText>
+          <AppText variant="body" style={styles.fieldValue}>
+            {issue.description || "No description provided."}
+          </AppText>
 
-      <View style={styles.row}>
-        {STATUSES.map((status) => {
-          const active = currentIssue.status === status;
-          return (
-            <TouchableOpacity
-              key={status}
-              style={[styles.btn, active && styles.btnActive]}
-              onPress={() => handleChangeStatus(status)}
-            >
-              <Text style={[styles.btnText, active && styles.btnTextActive]}>
-                {status}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      </>
-    )}
+          {issue.location?.latitude != null && issue.location?.longitude != null ? (
+            <>
+              <AppText variant="caption" style={[styles.fieldLabel, styles.fieldSpaced]}>Location</AppText>
+              <AppText variant="body" style={styles.fieldValue}>
+                {Number(issue.location.latitude).toFixed(5)}, {Number(issue.location.longitude).toFixed(5)}
+              </AppText>
+            </>
+          ) : null}
 
-      {isTrashed ? (
-        <TouchableOpacity style={[styles.bigBtn, styles.restoreBtn]} onPress={confirmRestore}>
-          <Text style={styles.bigBtnText}>Restore</Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity style={[styles.bigBtn, styles.trashBtn]} onPress={confirmMoveToTrash}>
-          <Text style={styles.bigBtnText}>Move to Trash</Text>
-        </TouchableOpacity>
-      )}
+          {issue.image ? (
+            <Image source={{ uri: issue.image }} style={styles.photo} />
+          ) : null}
+        </Card>
 
-      {!isManager ? (
-        <Text style={{ marginTop: 12, opacity: 0.6, fontWeight: "700" }}>
-          Foreman view: only managers can permanently delete from Trash.
-        </Text>
-      ) : null}
-    </View>
+        {/* Status update */}
+        {!isTrashed && (
+          <>
+            <AppText variant="body" bold style={styles.sectionTitle}>
+              Update status
+            </AppText>
+            <View style={styles.statusRow}>
+              {STATUSES.map((status) => {
+                const active = issue.status === status;
+                return (
+                  <View key={status} style={styles.statusBtn}>
+                    <Button
+                      title={STATUS_LABEL[status] ?? status}
+                      variant={active ? "primary" : "secondary"}
+                      tone={status === "Open" ? "negative" : "positive"}
+                      size="sm"
+                      fullWidth
+                      onPress={() => updateStatus(status)}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 24, fontWeight: "800", marginBottom: 12 },
-
-  infoBlock: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: "white",
+  title: {
+    marginBottom: 16,
   },
-  line: { marginBottom: 6 },
-
-  photo: { width: "100%", height: 220, borderRadius: 12, marginTop: 10 },
-
-  sectionTitle: { marginTop: 18, fontWeight: "800" },
-
-  row: { flexDirection: "row", gap: 10, marginTop: 10 },
-  btn: {
+  infoCard: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    opacity: 0.7,
+    marginBottom: 2,
+  },
+  fieldValue: {
+    marginBottom: 4,
+  },
+  fieldSpaced: {
+    marginTop: 10,
+  },
+  photo: {
+    width: "100%",
+    height: 220,
+    borderRadius: 4,
+    marginTop: 12,
+  },
+  sectionTitle: {
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  statusRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  statusBtn: {
     flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    backgroundColor: "white",
   },
-  btnActive: { backgroundColor: "black", borderColor: "black" },
-  btnText: { fontWeight: "700" },
-  btnTextActive: { color: "white" },
-
-  bigBtn: { marginTop: 14, padding: 14, borderRadius: 12 },
-  trashBtn: { backgroundColor: "#B00020" },
-  bigBtnText: { color: "white", fontWeight: "900", textAlign: "center" },
-
-  backBtn: { marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: "#333" },
-  backText: { color: "white", fontWeight: "700", textAlign: "center" },
-  restoreBtn: { backgroundColor: "#0A7D2C" },
 });
