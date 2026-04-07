@@ -14,9 +14,9 @@ Represents construction sites managed by the app.
 - `name` (string, required) - Site name
 - `description` (string, optional) - Site description
 - `address` (object, optional) - Address information
-  - `line1` (string) - Address line 1
-  - `line2` (string) - Address line 2
-  - `cityState` (string) - City and state
+- `line1` (string) - Address line 1
+- `line2` (string) - Address line 2
+- `cityState` (string) - City and state
 - `location` (object, optional) - Map pin coordinates (distinct from text `address`); `{ latitude, longitude }` numbers
 - `projectManagerId` (string, required) - Firebase Auth UID of the project manager
 - `status` (string, optional) - Site status (e.g., "ACTIVE", "COMPLETED")
