@@ -18,7 +18,6 @@ import { softDeleteSite, updateSiteForeman, updateSiteDescription } from "../ser
 import NeobrutalDialog from "../components/NeobrutalDialog";
 import { useTabBarPadding } from "../hooks/useTabBarPadding";
 import { useSiteCurrentTask } from "../hooks/useSiteCurrentTask";
-import { useIssues } from "../context/IssuesContext";
 
 const ROLE_LABELS = {
   FOREMAN: "Foreman",

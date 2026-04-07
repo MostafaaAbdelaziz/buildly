@@ -30,7 +30,7 @@ export function IssuesProvider({ children }) {
   const [trash, setTrash] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
-  // ✅ Load once
+  //Load once
   useEffect(() => {
     (async () => {
       try {
@@ -62,7 +62,7 @@ export function IssuesProvider({ children }) {
     })();
   }, []);
 
-  // ✅ Save whenever issues/trash changes (after initial load)
+  // Save whenever issues/trash changes (after initial load)
   useEffect(() => {
     if (!loaded) return;
     (async () => {
@@ -89,7 +89,7 @@ export function IssuesProvider({ children }) {
   function addIssue({ id, siteId, title, priority, description, image, location, createdBy, status }) {
   const newIssue = {
     siteId : siteId || null,
-      id: id || `${now()}_${Math.random().toString(16).slice(2)}`,
+    id: id || `${now()}_${Math.random().toString(16).slice(2)}`,
     title: (title || "").trim(),
     description: (description || "").trim(),
     image: image || null,
@@ -99,7 +99,7 @@ export function IssuesProvider({ children }) {
     createdAtTs: now(),
     createdBy: createdBy || "Unknown",
 
-    // ✅ SAVE LOCATION
+    // SAVE LOCATION
     location: location
       ? {
           latitude: Number(location.latitude),
@@ -111,7 +111,7 @@ export function IssuesProvider({ children }) {
   setIssues((prev) => [newIssue, ...prev]);
 }
 
-  // ✅ update issue fields (status, priority, etc.)
+  // update issue fields (status, priority, etc.)
   function updateIssue(id, patch) {
     if (!id) return;
     setIssues((prev) =>
@@ -119,7 +119,7 @@ export function IssuesProvider({ children }) {
     );
   }
 
-  // ✅ move issue to trash (soft delete)
+  // move issue to trash (soft delete)
   function softDeleteIssue(id) {
     if (!id) return;
 
@@ -146,7 +146,7 @@ export function IssuesProvider({ children }) {
     });
   }
 
-  // ✅ restore issue from trash back to issues
+  // restore issue from trash back to issues
   function restoreIssue(id) {
     if (!id) return;
 
@@ -168,7 +168,7 @@ export function IssuesProvider({ children }) {
     });
   }
 
-  // ✅ permanent delete (remove from trash forever)
+  // permanent delete (remove from trash forever)
   function permanentlyDeleteIssue(id) {
     if (!id) return;
     setTrash((prev) => prev.filter((x) => x.id !== id));
